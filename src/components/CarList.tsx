@@ -57,7 +57,34 @@ const CarList: React.FC = () => {
       image: "https://placehold.co/600x400",
       description: "Powerful Ford Mustang with premium features.",
       images: ["https://placehold.co/600x400", "https://placehold.co/600x400", "https://placehold.co/600x400"]
+    },
+    {
+      id: 4,
+      year: 2025,
+      make: "Mercedes",
+      model: "GLE",
+      mileage: 15000,
+      price: 35999,
+      power: 310,
+      engine: "4.4L Bi-Turbo",
+      image: "https://placehold.co/600x400",
+      description: "Powerful Mercedes GLE with premium features.",
+      images: ["https://placehold.co/600x400", "https://placehold.co/600x400", "https://placehold.co/600x400"]
+    },
+    {
+      id: 5,
+      year: 2023,
+      make: "BMW",
+      model: "X5",
+      mileage: 15000,
+      price: 35999,
+      power: 310,
+      engine: "4.4L Twin Turbo",
+      image: "https://placehold.co/600x400",
+      description: "Powerful BMW X5 with premium features.",
+      images: ["https://placehold.co/600x400", "https://placehold.co/600x400", "https://placehold.co/600x400"]
     }
+  
   ];
 
   return (
