@@ -11,9 +11,6 @@ const SellPage: React.FC = () => {
     mileage: '',
     price: '',
     engine: '',
-    transmission: '',
-    fuelType: '',
-    color: '',
     description: '',
     name: '',
     email: '',
@@ -206,56 +203,6 @@ const SellPage: React.FC = () => {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                         placeholder="e.g. 2.0L Turbo"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="transmission" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Transmission
-                      </label>
-                      <select
-                        id="transmission"
-                        name="transmission"
-                        value={formData.transmission}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                      >
-                        <option value="">Select Transmission</option>
-                        <option value="automatic">Automatic</option>
-                        <option value="manual">Manual</option>
-                        <option value="cvt">CVT</option>
-                        <option value="semi-automatic">Semi-Automatic</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="fuelType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Fuel Type
-                      </label>
-                      <select
-                        id="fuelType"
-                        name="fuelType"
-                        value={formData.fuelType}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                      >
-                        <option value="">Select Fuel Type</option>
-                        <option value="gasoline">Gasoline</option>
-                        <option value="diesel">Diesel</option>
-                        <option value="electric">Electric</option>
-                        <option value="hybrid">Hybrid</option>
-                        <option value="plug-in-hybrid">Plug-in Hybrid</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="color" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Color
-                      </label>
-                      <input
-                        type="text"
-                        id="color"
-                        name="color"
-                        value={formData.color}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                       />
                     </div>
                   </div>
