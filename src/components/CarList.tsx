@@ -106,7 +106,13 @@ const CarList: React.FC = () => {
                   <p className="font-semibold text-gray-900 dark:text-white">${car.price.toLocaleString()}</p>
                 </div>
               </div>
-              <button className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded transition-colors duration-200">
+              <button 
+                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-4 rounded transition-colors duration-200"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  // Handle request info logic here
+                }}
+              >
                 Request Info
               </button>
             </div>
