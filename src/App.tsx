@@ -12,9 +12,33 @@ import { ThemeProvider } from './context/ThemeContext';
 const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [currentPage, setCurrentPage] = useState<'main' | 'faq' | 'sell' | 'support'>('main');
+  const [filters, setFilters] = useState<{
+    make: string[];
+    model: string[];
+    priceRange: [number, number];
+    mileage: [number, number];
+    year: [number, number];
+  }>({
+    make: [''],
+    model: [''],
+    priceRange: [0, 0],
+    mileage: [0, 0],
+    year: [0, 0]
+  });
 
   const handleNavClick = (page: 'main' | 'faq' | 'sell' | 'support') => {
     setCurrentPage(page);
+  };
+
+  const handleFilterChange = (filterType: string, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const handleApplyFilters = () => {
+    console.log('Applying filters:', filters);
   };
 
   return (
@@ -27,7 +51,11 @@ const App: React.FC = () => {
             <>
               <div className="flex flex-col md:flex-row gap-8">
                 <aside className="w-full md:w-64 flex-shrink-0">
-                  <Sidebar />
+                  <Sidebar 
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onApplyFilters={handleApplyFilters}
+                  />
                 </aside>
                 <div className="flex-grow">
                   <CarList />
