@@ -48,7 +48,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onClose }) => {
 
         {/* Form Container */}
         <div className="p-6 sm:p-8">
-          {activeTab === 'signin' ? <SignInForm /> : <RegisterForm />}
+          {activeTab === 'signin' ? (
+            <SignInForm onSuccess={onClose} />
+          ) : (
+            <RegisterForm onSuccess={onClose} />
+          )}
         </div>
       </div>
     </div>

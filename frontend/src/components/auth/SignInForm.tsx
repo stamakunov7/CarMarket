@@ -1,26 +1,34 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const SignInForm: React.FC = () => {
+interface SignInFormProps {
+  onSuccess?: () => void;
+}
+
+const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [errors, setErrors] = useState({
     email: '',
-    password: ''
+    password: '',
+    general: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
-    setErrors(prev => ({ ...prev, [name]: '' }));
+    setErrors(prev => ({ ...prev, [name]: '', general: '' }));
   };
 
   const validateForm = () => {
     let isValid = true;
-    const newErrors = { email: '', password: '' };
+    const newErrors = { email: '', password: '', general: '' };
 
     if (!formData.email) {
       newErrors.email = 'Email is required';
@@ -39,16 +47,35 @@ const SignInForm: React.FC = () => {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Handle sign in logic here
-      console.log('Sign in:', formData);
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrors({ email: '', password: '', general: '' });
+
+    try {
+      const result = await login(formData.email, formData.password);
+      
+      if (result.success) {
+        onSuccess?.();
+      } else {
+        setErrors(prev => ({ ...prev, general: result.message }));
+      }
+    } catch (error) {
+      setErrors(prev => ({ ...prev, general: 'An unexpected error occurred' }));
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {errors.general && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
+        </div>
+      )}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Email
@@ -131,12 +158,14 @@ const SignInForm: React.FC = () => {
 
       <button
         type="submit"
+        disabled={isLoading}
         className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
                  shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800
                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                 transform transition-all duration-200 hover:scale-[1.02]"
+                 transform transition-all duration-200 hover:scale-[1.02]
+                 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
-        Sign in
+        {isLoading ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
   );

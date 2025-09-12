@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const RegisterForm: React.FC = () => {
+interface RegisterFormProps {
+  onSuccess?: () => void;
+}
+
+const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
+  const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -13,14 +20,15 @@ const RegisterForm: React.FC = () => {
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    general: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
-    setErrors(prev => ({ ...prev, [name]: '' }));
+    setErrors(prev => ({ ...prev, [name]: '', general: '' }));
   };
 
   const validateForm = () => {
@@ -29,7 +37,8 @@ const RegisterForm: React.FC = () => {
       username: '',
       email: '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      general: ''
     };
 
     // Username validation
@@ -72,16 +81,35 @@ const RegisterForm: React.FC = () => {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Handle registration logic here
-      console.log('Register:', formData);
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrors({ username: '', email: '', password: '', confirmPassword: '', general: '' });
+
+    try {
+      const result = await register(formData.username, formData.email, formData.password);
+      
+      if (result.success) {
+        onSuccess?.();
+      } else {
+        setErrors(prev => ({ ...prev, general: result.message }));
+      }
+    } catch (error) {
+      setErrors(prev => ({ ...prev, general: 'An unexpected error occurred' }));
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {errors.general && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
+        </div>
+      )}
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Username
@@ -228,12 +256,14 @@ const RegisterForm: React.FC = () => {
 
       <button
         type="submit"
+        disabled={isLoading}
         className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
                  shadow-sm text-sm font-medium text-white bg-blue-700 hover:bg-blue-800
                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                 transform transition-all duration-200 hover:scale-[1.02]"
+                 transform transition-all duration-200 hover:scale-[1.02]
+                 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
-        Create Account
+        {isLoading ? 'Creating Account...' : 'Create Account'}
       </button>
     </form>
   );

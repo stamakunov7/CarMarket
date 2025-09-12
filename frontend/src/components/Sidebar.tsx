@@ -32,6 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
             <option value="toyota">Toyota</option>
             <option value="honda">Honda</option>
             <option value="ford">Ford</option>
+            <option value="mercedes">Mercedes</option>
+            <option value="bmw">BMW</option>
           </select>
         </div>
 
@@ -62,6 +64,20 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
                 <option value="mustang">Mustang</option>
                 <option value="f-150">F-150</option>
                 <option value="explorer">Explorer</option>
+              </>
+            )}
+            {filters.make[0] === 'mercedes' && (
+              <>
+                <option value="gle">GLE</option>
+                <option value="c-class">C-Class</option>
+                <option value="e-class">E-Class</option>
+              </>
+            )}
+            {filters.make[0] === 'bmw' && (
+              <>
+                <option value="x5">X5</option>
+                <option value="3-series">3 Series</option>
+                <option value="5-series">5 Series</option>
               </>
             )}
           </select>
