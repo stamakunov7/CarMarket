@@ -1709,8 +1709,8 @@ app.post('/api/support', async (req, res) => {
 
 // Запуск сервера
 app.listen(port, async () => {
-  // Инициализация базы данных
-  await initializeDatabase();
+  // Инициализация базы данных (временно отключено)
+  // await initializeDatabase();
   
   logger.info('🚀 Server started', {
     port,
