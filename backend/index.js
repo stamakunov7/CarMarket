@@ -243,7 +243,11 @@ const authLimiter = rateLimit({
 app.use(compression()); // Enable gzip compression
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL || 'https://your-frontend-domain.com'
+    ? [
+        'https://car-market-sage.vercel.app',
+        'https://car-market-git-main-stamakunov7s-projects.vercel.app',
+        process.env.FRONTEND_URL || 'https://your-frontend-domain.com'
+      ].filter(Boolean)
     : 'http://localhost:3000',
   credentials: true // Allow cookies
 }));
