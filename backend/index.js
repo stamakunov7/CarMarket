@@ -1674,14 +1674,14 @@ app.listen(port, async () => {
   logger.info('🚀 Server started', {
     port,
     environment: process.env.NODE_ENV || 'development',
-    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'Redis Cache']
+    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'In-Memory Cache']
   });
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 Security features enabled: Helmet, Rate Limiting`);
   console.log(`📝 Logging enabled: Winston`);
-  console.log(`⚡ Performance features: Compression, Health Check, Redis Cache`);
-  console.log(`🔴 Redis: ${process.env.REDIS_URL || 'redis://localhost:6379'}`);
+  console.log(`⚡ Performance features: Compression, Health Check, In-Memory Cache`);
+  console.log(`💾 Cache: In-Memory (Redis disabled)`);
   if (TELEGRAM_BOT_TOKEN) {
     console.log(`📱 Telegram Bot: Configured`);
   } else {
