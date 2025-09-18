@@ -246,6 +246,7 @@ app.use(cors({
     ? [
         'https://car-market-sage.vercel.app',
         'https://car-market-git-main-stamakunov7s-projects.vercel.app',
+        'https://car-market-7bbz6n491-stamakunov7s-projects.vercel.app',
         process.env.FRONTEND_URL || 'https://your-frontend-domain.com'
       ].filter(Boolean)
     : 'http://localhost:3000',
