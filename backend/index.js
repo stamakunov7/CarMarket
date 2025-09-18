@@ -210,6 +210,37 @@ async function initializeDatabase() {
       )
     `);
     
+    // Добавление дополнительных колонок к таблице listings
+    await pool.query(`
+      ALTER TABLE listings 
+      ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS engine VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS drivetrain VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS location VARCHAR(200),
+      ADD COLUMN IF NOT EXISTS owner_phone VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS generation VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS body_type VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS color VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS engine_volume DECIMAL(3,1),
+      ADD COLUMN IF NOT EXISTS engine_power INTEGER,
+      ADD COLUMN IF NOT EXISTS transmission VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS steering_wheel VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS condition VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS customs VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS region VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS registration VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS exchange_possible BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS availability BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS contact_person VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS tags VARCHAR(200),
+      ADD COLUMN IF NOT EXISTS equipment TEXT,
+      ADD COLUMN IF NOT EXISTS service_history TEXT,
+      ADD COLUMN IF NOT EXISTS owners_count INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS vin VARCHAR(17),
+      ADD COLUMN IF NOT EXISTS registration_number VARCHAR(20)
+    `);
+    
     // Создание таблицы listing_images
     await pool.query(`
       CREATE TABLE IF NOT EXISTS listing_images (
@@ -1709,8 +1740,8 @@ app.post('/api/support', async (req, res) => {
 
 // Запуск сервера
 app.listen(port, async () => {
-  // Инициализация базы данных (временно отключено)
-  // await initializeDatabase();
+  // Инициализация базы данных
+  await initializeDatabase();
   
   logger.info('🚀 Server started', {
     port,
