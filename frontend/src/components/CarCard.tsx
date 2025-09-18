@@ -30,6 +30,12 @@ const CarCard: React.FC<CarCardProps> = ({ car, onClick }) => {
     }).format(price);
   };
 
+  const truncateLocation = (location: string, maxLength: number = 20): string => {
+    if (!location) return 'N/A';
+    if (location.length <= maxLength) return location;
+    return location.substring(0, maxLength) + '...';
+  };
+
   const formatMileage = (mileage: number): string => {
     return new Intl.NumberFormat('en-US').format(mileage);
   };
@@ -115,8 +121,8 @@ const CarCard: React.FC<CarCardProps> = ({ car, onClick }) => {
           {/* Location */}
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400">Location</p>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              {car.location || 'N/A'}
+            <p className="font-semibold text-gray-900 dark:text-white truncate whitespace-nowrap overflow-hidden" title={car.location || 'N/A'}>
+              {truncateLocation(car.location || 'N/A')}
             </p>
           </div>
         </div>
