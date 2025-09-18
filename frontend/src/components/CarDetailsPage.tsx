@@ -68,7 +68,7 @@ const CarDetailsPage: React.FC = () => {
         const data = await response.json();
         
         if (response.ok) {
-          setCar(data.data);
+          setCar(data.data.listing);
         } else {
           setError(data.message || 'Car not found');
         }

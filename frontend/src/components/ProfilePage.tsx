@@ -254,7 +254,7 @@ const ProfilePage: React.FC = () => {
       const response = await fetch(`https://carmarket-wo6e.onrender.com/api/listings/${listing.id}`);
       if (response.ok) {
         const data = await response.json();
-        const fullListing = data.data;
+        const fullListing = data.data.listing;
         
         setFormData({
           title: fullListing.title || '',
