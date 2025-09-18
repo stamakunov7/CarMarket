@@ -70,7 +70,7 @@ const SupportPage: React.FC = () => {
     setSubmitError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/support', {
+      const response = await fetch('https://carmarket-wo6e.onrender.com/api/support', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
