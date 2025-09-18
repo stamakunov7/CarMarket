@@ -41,23 +41,30 @@ const logger = winston.createLogger({
   ]
 });
 
-// Redis cache configuration
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  retry_strategy: (options) => {
-    if (options.error && options.error.code === 'ECONNREFUSED') {
-      logger.warn('Redis server connection refused, falling back to in-memory cache');
-      return new Error('Redis server connection refused');
+// Redis cache configuration (temporarily disabled)
+let redisClient = null;
+
+// Only initialize Redis if REDIS_URL is provided and not empty
+if (process.env.REDIS_URL && process.env.REDIS_URL.trim() !== '') {
+  redisClient = createClient({
+    url: process.env.REDIS_URL,
+    retry_strategy: (options) => {
+      if (options.error && options.error.code === 'ECONNREFUSED') {
+        logger.warn('Redis server connection refused, falling back to in-memory cache');
+        return new Error('Redis server connection refused');
+      }
+      if (options.total_retry_time > 1000 * 60 * 60) {
+        return new Error('Retry time exhausted');
+      }
+      if (options.attempt > 10) {
+        return undefined;
+      }
+      return Math.min(options.attempt * 100, 3000);
     }
-    if (options.total_retry_time > 1000 * 60 * 60) {
-      return new Error('Retry time exhausted');
-    }
-    if (options.attempt > 10) {
-      return undefined;
-    }
-    return Math.min(options.attempt * 100, 3000);
-  }
-});
+  });
+} else {
+  logger.info('Redis disabled - no REDIS_URL provided');
+}
 
 // Fallback in-memory cache for when Redis is unavailable
 const fallbackCache = new Map();
@@ -68,7 +75,7 @@ const getCached = async (key) => {
   logger.info(`Getting cached data for key: ${key}`);
   
   // Try Redis first if available
-  if (redisClient.isOpen) {
+  if (redisClient && redisClient.isOpen) {
     try {
       const data = await redisClient.get(key);
       if (data) {
@@ -104,7 +111,7 @@ const setCache = async (key, data) => {
   logger.info(`Setting cache for key: ${key}`);
   
   // Try Redis first if available
-  if (redisClient.isOpen) {
+  if (redisClient && redisClient.isOpen) {
     try {
       await redisClient.setEx(key, CACHE_TTL, JSON.stringify(data));
       logger.info(`Data cached in Redis: ${key}`);
@@ -124,27 +131,29 @@ const setCache = async (key, data) => {
   logger.info(`Data cached in fallback: ${key}`);
 };
 
-// Initialize Redis connection
-redisClient.on('error', (err) => {
-  logger.warn('Redis Client Error:', err.message);
-});
+// Initialize Redis connection (only if Redis is enabled)
+if (redisClient) {
+  redisClient.on('error', (err) => {
+    logger.warn('Redis Client Error:', err.message);
+  });
 
-redisClient.on('connect', () => {
-  logger.info('Redis client connected');
-});
+  redisClient.on('connect', () => {
+    logger.info('Redis client connected');
+  });
 
-redisClient.on('ready', () => {
-  logger.info('Redis client ready');
-});
+  redisClient.on('ready', () => {
+    logger.info('Redis client ready');
+  });
 
-redisClient.on('end', () => {
-  logger.warn('Redis client disconnected');
-});
+  redisClient.on('end', () => {
+    logger.warn('Redis client disconnected');
+  });
 
-// Connect to Redis (non-blocking)
-redisClient.connect().catch((err) => {
-  logger.warn('Failed to connect to Redis, using fallback cache:', err.message);
-});
+  // Connect to Redis (non-blocking)
+  redisClient.connect().catch((err) => {
+    logger.warn('Failed to connect to Redis, using fallback cache:', err.message);
+  });
+}
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -1588,14 +1597,16 @@ app.get('/health', async (req, res) => {
     const dbDuration = Date.now() - dbStart;
     
     // Check Redis connection
-    let redisStatus = 'disconnected';
+    let redisStatus = 'disabled';
     let redisResponseTime = 'N/A';
     try {
-      if (redisClient.isOpen) {
+      if (redisClient && redisClient.isOpen) {
         const redisStart = Date.now();
         await redisClient.ping();
         redisResponseTime = `${Date.now() - redisStart}ms`;
         redisStatus = 'connected';
+      } else if (redisClient) {
+        redisStatus = 'disconnected';
       }
     } catch (error) {
       redisStatus = 'error';
