@@ -63,6 +63,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (response.ok) {
         setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message };
@@ -88,6 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (response.ok) {
         setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message };
@@ -114,6 +116,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.removeItem('rememberMe');
     }
   };
+
+  // Check auth status on component mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
 
   const value: AuthContextType = {
     user,
