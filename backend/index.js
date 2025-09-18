@@ -176,6 +176,65 @@ const pool = new pg.Pool({
   connectionTimeoutMillis: 2000,
 });
 
+// Автоматическая инициализация базы данных
+async function initializeDatabase() {
+  try {
+    console.log('🔄 Initializing database...');
+    
+    // Создание таблицы users
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(200) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Создание таблицы listings
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS listings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) NOT NULL,
+        make VARCHAR(50),
+        model VARCHAR(50),
+        year INTEGER,
+        mileage INTEGER,
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'sold', 'draft')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Создание таблицы listing_images
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS listing_images (
+        id SERIAL PRIMARY KEY,
+        listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+        image_url VARCHAR(500) NOT NULL,
+        cloudinary_public_id VARCHAR(200),
+        is_primary BOOLEAN DEFAULT FALSE,
+        image_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Создание индексов
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_listings_user_id ON listings(user_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_listing_images_listing_id ON listing_images(listing_id)');
+    
+    console.log('✅ Database initialized successfully!');
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+  }
+}
+
 // Security Middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -1649,7 +1708,10 @@ app.post('/api/support', async (req, res) => {
 });
 
 // Запуск сервера
-app.listen(port, () => {
+app.listen(port, async () => {
+  // Инициализация базы данных
+  await initializeDatabase();
+  
   logger.info('🚀 Server started', {
     port,
     environment: process.env.NODE_ENV || 'development',
