@@ -12,7 +12,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import winston from 'winston';
 import compression from 'compression';
-import { createClient } from 'redis';
+// import { createClient } from 'redis'; // Redis disabled
 import { uploadMultiple, handleUploadError, cleanupTempFiles } from './middleware/upload.js';
 import { uploadToCloudinary, deleteFromCloudinary } from './config/cloudinary.js';
 import axios from 'axios';
@@ -41,30 +41,7 @@ const logger = winston.createLogger({
   ]
 });
 
-// Redis cache configuration (temporarily disabled)
-let redisClient = null;
-
-// Only initialize Redis if REDIS_URL is provided and not empty
-if (process.env.REDIS_URL && process.env.REDIS_URL.trim() !== '') {
-  redisClient = createClient({
-    url: process.env.REDIS_URL,
-    retry_strategy: (options) => {
-      if (options.error && options.error.code === 'ECONNREFUSED') {
-        logger.warn('Redis server connection refused, falling back to in-memory cache');
-        return new Error('Redis server connection refused');
-      }
-      if (options.total_retry_time > 1000 * 60 * 60) {
-        return new Error('Retry time exhausted');
-      }
-      if (options.attempt > 10) {
-        return undefined;
-      }
-      return Math.min(options.attempt * 100, 3000);
-    }
-  });
-} else {
-  logger.info('Redis disabled - no REDIS_URL provided');
-}
+// Redis completely disabled
 
 // Fallback in-memory cache for when Redis is unavailable
 const fallbackCache = new Map();
@@ -74,22 +51,7 @@ const CACHE_TTL = 5 * 60; // 5 minutes in seconds
 const getCached = async (key) => {
   logger.info(`Getting cached data for key: ${key}`);
   
-  // Try Redis first if available
-  if (redisClient && redisClient.isOpen) {
-    try {
-      const data = await redisClient.get(key);
-      if (data) {
-        logger.info(`Cache hit from Redis: ${key}`);
-        return JSON.parse(data);
-      } else {
-        logger.info(`No data in Redis for key: ${key}`);
-      }
-    } catch (error) {
-      logger.warn('Redis get error, using fallback cache:', error.message);
-    }
-  } else {
-    logger.info('Redis client not open, using fallback cache');
-  }
+  // Redis disabled - using in-memory cache only
   
   // Fallback to in-memory cache
   const item = fallbackCache.get(key);
@@ -110,18 +72,7 @@ const getCached = async (key) => {
 const setCache = async (key, data) => {
   logger.info(`Setting cache for key: ${key}`);
   
-  // Try Redis first if available
-  if (redisClient && redisClient.isOpen) {
-    try {
-      await redisClient.setEx(key, CACHE_TTL, JSON.stringify(data));
-      logger.info(`Data cached in Redis: ${key}`);
-      return;
-    } catch (error) {
-      logger.warn('Redis set error, using fallback cache:', error.message);
-    }
-  } else {
-    logger.info('Redis client not open, using fallback cache');
-  }
+  // Redis disabled - using in-memory cache only
   
   // Fallback to in-memory cache
   fallbackCache.set(key, {
@@ -131,29 +82,7 @@ const setCache = async (key, data) => {
   logger.info(`Data cached in fallback: ${key}`);
 };
 
-// Initialize Redis connection (only if Redis is enabled)
-if (redisClient) {
-  redisClient.on('error', (err) => {
-    logger.warn('Redis Client Error:', err.message);
-  });
-
-  redisClient.on('connect', () => {
-    logger.info('Redis client connected');
-  });
-
-  redisClient.on('ready', () => {
-    logger.info('Redis client ready');
-  });
-
-  redisClient.on('end', () => {
-    logger.warn('Redis client disconnected');
-  });
-
-  // Connect to Redis (non-blocking)
-  redisClient.connect().catch((err) => {
-    logger.warn('Failed to connect to Redis, using fallback cache:', err.message);
-  });
-}
+// Redis completely disabled
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -1596,21 +1525,9 @@ app.get('/health', async (req, res) => {
     await pool.query('SELECT 1');
     const dbDuration = Date.now() - dbStart;
     
-    // Check Redis connection
+    // Redis disabled
     let redisStatus = 'disabled';
     let redisResponseTime = 'N/A';
-    try {
-      if (redisClient && redisClient.isOpen) {
-        const redisStart = Date.now();
-        await redisClient.ping();
-        redisResponseTime = `${Date.now() - redisStart}ms`;
-        redisStatus = 'connected';
-      } else if (redisClient) {
-        redisStatus = 'disconnected';
-      }
-    } catch (error) {
-      redisStatus = 'error';
-    }
     
     const health = {
       status: 'healthy',
@@ -1626,11 +1543,11 @@ app.get('/health', async (req, res) => {
         responseTime: redisResponseTime
       },
       cache: {
-        type: redisClient.isOpen ? 'redis' : 'fallback',
+        type: 'in-memory',
         fallbackSize: fallbackCache.size,
         fallbackEntries: Array.from(fallbackCache.keys()),
-        redisConnected: redisClient.isOpen,
-        redisKeys: redisClient.isOpen ? await redisClient.keys('*') : []
+        redisConnected: false,
+        redisKeys: []
       },
       environment: process.env.NODE_ENV || 'development'
     };
