@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SignInFormProps {
@@ -13,11 +13,41 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
     email: '',
     password: ''
   });
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({
     email: '',
     password: '',
     general: ''
   });
+
+  // Load saved credentials on component mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    const savedPassword = localStorage.getItem('rememberedPassword');
+    const rememberMeStatus = localStorage.getItem('rememberMe') === 'true';
+    
+    if (savedEmail && savedPassword && rememberMeStatus) {
+      setFormData({
+        email: savedEmail,
+        password: savedPassword
+      });
+      setRememberMe(true);
+    }
+  }, []);
+
+  // Save credentials to localStorage
+  const saveCredentials = (email: string, password: string) => {
+    localStorage.setItem('rememberedEmail', email);
+    localStorage.setItem('rememberedPassword', password);
+    localStorage.setItem('rememberMe', 'true');
+  };
+
+  // Clear saved credentials
+  const clearCredentials = () => {
+    localStorage.removeItem('rememberedEmail');
+    localStorage.removeItem('rememberedPassword');
+    localStorage.removeItem('rememberMe');
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -58,6 +88,12 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
       const result = await login(formData.email, formData.password);
       
       if (result.success) {
+        // Save credentials if "Remember Me" is checked
+        if (rememberMe) {
+          saveCredentials(formData.email, formData.password);
+        } else {
+          clearCredentials();
+        }
         onSuccess?.();
       } else {
         setErrors(prev => ({ ...prev, general: result.message }));
@@ -149,6 +185,19 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
       </div>
 
       <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <input
+            id="remember-me"
+            name="remember-me"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+          />
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+            Remember me
+          </label>
+        </div>
         <div className="text-sm">
           <a href="#" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
             Forgot your password?

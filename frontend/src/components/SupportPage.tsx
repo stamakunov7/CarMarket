@@ -59,7 +59,7 @@ const SupportPage: React.FC = () => {
     return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -69,24 +69,41 @@ const SupportPage: React.FC = () => {
     setIsSubmitting(true);
     setSubmitError('');
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitSuccess(true);
-      
-      // Reset form after successful submission
-      setFormData({
-        name: '',
-        email: '',
-        subject: '',
-        message: ''
+    try {
+      const response = await fetch('http://localhost:4000/api/support', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
-      
-      // Reset success message after 5 seconds
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 5000);
-    }, 1500);
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSubmitSuccess(true);
+        
+        // Reset form after successful submission
+        setFormData({
+          name: '',
+          email: '',
+          subject: '',
+          message: ''
+        });
+        
+        // Reset success message after 5 seconds
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 5000);
+      } else {
+        setSubmitError(result.error || 'Failed to send message. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setSubmitError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -105,7 +122,7 @@ const SupportPage: React.FC = () => {
             {/* Telegram Contact */}
             <div className="mt-6 inline-flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-full">
               <a 
-                href="https://t.me/carmarket_support" 
+                href="https://t.me/activeuser7" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
@@ -113,7 +130,7 @@ const SupportPage: React.FC = () => {
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161l-1.97 9.355c-.146.658-.537.818-1.084.51l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.534-.196 1.006.128.832.941z" />
                 </svg>
-                <span className="font-medium">@stamakunov7_admin</span>
+                <span className="font-medium">@activeuser7</span>
               </a>
             </div>
           </div>

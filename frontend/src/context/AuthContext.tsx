@@ -108,6 +108,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      // Clear saved credentials on logout
+      localStorage.removeItem('rememberedEmail');
+      localStorage.removeItem('rememberedPassword');
+      localStorage.removeItem('rememberMe');
     }
   };
 

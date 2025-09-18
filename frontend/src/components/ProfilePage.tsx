@@ -23,6 +23,32 @@ interface CreateListingData {
   model: string;
   year: number;
   mileage: number;
+  manufacturer?: string;
+  engine?: string;
+  drivetrain?: string;
+  location?: string;
+  owner_phone?: string;
+  generation?: string;
+  body_type?: string;
+  color?: string;
+  fuel_type?: string;
+  engine_volume?: number;
+  engine_power?: number;
+  transmission?: string;
+  steering_wheel?: string;
+  condition?: string;
+  customs?: string;
+  region?: string;
+  registration?: string;
+  exchange_possible?: boolean;
+  availability?: boolean;
+  contact_person?: string;
+  tags?: string;
+  equipment?: string;
+  service_history?: string;
+  owners_count?: number;
+  vin?: string;
+  registration_number?: string;
 }
 
 const ProfilePage: React.FC = () => {
@@ -41,7 +67,33 @@ const ProfilePage: React.FC = () => {
     make: '',
     model: '',
     year: new Date().getFullYear(),
-    mileage: 0
+    mileage: 0,
+    manufacturer: '',
+    engine: '',
+    drivetrain: '',
+    location: '',
+    owner_phone: '',
+    generation: '',
+    body_type: '',
+    color: '',
+    fuel_type: '',
+    engine_volume: 0,
+    engine_power: 0,
+    transmission: '',
+    steering_wheel: '',
+    condition: '',
+    customs: '',
+    region: '',
+    registration: '',
+    exchange_possible: false,
+    availability: true,
+    contact_person: '',
+    tags: '',
+    equipment: '',
+    service_history: '',
+    owners_count: 1,
+    vin: '',
+    registration_number: ''
   });
 
   // Fetch user listings
@@ -116,7 +168,10 @@ const ProfilePage: React.FC = () => {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          status: editingListing.status // Preserve the current status
+        })
       });
 
       if (!response.ok) {
@@ -136,7 +191,33 @@ const ProfilePage: React.FC = () => {
         make: '',
         model: '',
         year: new Date().getFullYear(),
-        mileage: 0
+        mileage: 0,
+        manufacturer: '',
+        engine: '',
+        drivetrain: '',
+        location: '',
+        owner_phone: '',
+        generation: '',
+        body_type: '',
+        color: '',
+        fuel_type: '',
+        engine_volume: 0,
+        engine_power: 0,
+        transmission: '',
+        steering_wheel: '',
+        condition: '',
+        customs: '',
+        region: '',
+        registration: '',
+        exchange_possible: false,
+        availability: true,
+        contact_person: '',
+        tags: '',
+        equipment: '',
+        service_history: '',
+        owners_count: 1,
+        vin: '',
+        registration_number: ''
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update listing');
@@ -165,17 +246,128 @@ const ProfilePage: React.FC = () => {
   };
 
   // Start editing
-  const startEditing = (listing: Listing) => {
+  const startEditing = async (listing: Listing) => {
     setEditingListing(listing);
-    setFormData({
-      title: listing.title,
-      description: listing.description,
-      price: listing.price,
-      make: listing.make,
-      model: listing.model,
-      year: listing.year,
-      mileage: listing.mileage
-    });
+    
+    // Fetch full listing details including all fields
+    try {
+      const response = await fetch(`http://localhost:4000/api/cars/${listing.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        const fullListing = data.data;
+        
+        setFormData({
+          title: fullListing.title || '',
+          description: fullListing.description || '',
+          price: fullListing.price || 0,
+          make: fullListing.make || '',
+          model: fullListing.model || '',
+          year: fullListing.year || new Date().getFullYear(),
+          mileage: fullListing.mileage || 0,
+          manufacturer: fullListing.manufacturer || '',
+          engine: fullListing.engine || '',
+          drivetrain: fullListing.drivetrain || '',
+          location: fullListing.location || '',
+          owner_phone: fullListing.owner_phone || '',
+          generation: fullListing.generation || '',
+          body_type: fullListing.body_type || '',
+          color: fullListing.color || '',
+          fuel_type: fullListing.fuel_type || '',
+          engine_volume: fullListing.engine_volume || 0,
+          engine_power: fullListing.engine_power || 0,
+          transmission: fullListing.transmission || '',
+          steering_wheel: fullListing.steering_wheel || '',
+          condition: fullListing.condition || '',
+          customs: fullListing.customs || '',
+          region: fullListing.region || '',
+          registration: fullListing.registration || '',
+          exchange_possible: fullListing.exchange_possible || false,
+          availability: fullListing.availability !== false,
+          contact_person: fullListing.contact_person || '',
+          tags: fullListing.tags || '',
+          equipment: fullListing.equipment || '',
+          service_history: fullListing.service_history || '',
+          owners_count: fullListing.owners_count || 1,
+          vin: fullListing.vin || '',
+          registration_number: fullListing.registration_number || ''
+        });
+      } else {
+        // Fallback to basic fields if API fails
+        setFormData({
+          title: listing.title,
+          description: listing.description,
+          price: listing.price,
+          make: listing.make,
+          model: listing.model,
+          year: listing.year,
+          mileage: listing.mileage,
+          manufacturer: '',
+          engine: '',
+          drivetrain: '',
+          location: '',
+          owner_phone: '',
+          generation: '',
+          body_type: '',
+          color: '',
+          fuel_type: '',
+          engine_volume: 0,
+          engine_power: 0,
+          transmission: '',
+          steering_wheel: '',
+          condition: '',
+          customs: '',
+          region: '',
+          registration: '',
+          exchange_possible: false,
+          availability: true,
+          contact_person: '',
+          tags: '',
+          equipment: '',
+          service_history: '',
+          owners_count: 1,
+          vin: '',
+          registration_number: ''
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching full listing details:', err);
+      // Fallback to basic fields
+      setFormData({
+        title: listing.title,
+        description: listing.description,
+        price: listing.price,
+        make: listing.make,
+        model: listing.model,
+        year: listing.year,
+        mileage: listing.mileage,
+        manufacturer: '',
+        engine: '',
+        drivetrain: '',
+        location: '',
+        owner_phone: '',
+        generation: '',
+        body_type: '',
+        color: '',
+        fuel_type: '',
+        engine_volume: 0,
+        engine_power: 0,
+        transmission: '',
+        steering_wheel: '',
+        condition: '',
+        customs: '',
+        region: '',
+        registration: '',
+        exchange_possible: false,
+        availability: true,
+        contact_person: '',
+        tags: '',
+        equipment: '',
+        service_history: '',
+        owners_count: 1,
+        vin: '',
+        registration_number: ''
+      });
+    }
   };
 
   // Clear notifications
@@ -341,7 +533,7 @@ const ProfilePage: React.FC = () => {
                       </div>
                       
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        {listing.year} {listing.make} {listing.model}
+                        {listing.title || `${listing.year} ${listing.make} ${listing.model}`}
                         {listing.mileage > 0 && ` • ${listing.mileage.toLocaleString()} miles`}
                       </div>
                       
