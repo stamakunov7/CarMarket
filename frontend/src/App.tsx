@@ -216,4 +216,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App; 
+export default App; // Force Vercel update Thu Sep 18 00:52:11 EDT 2025
