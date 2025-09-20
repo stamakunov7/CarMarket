@@ -121,6 +121,10 @@ CLOUDINARY_API_SECRET=your_api_secret
 # Redis (Optional)
 REDIS_URL=redis://localhost:6379
 
+# Telegram Bot (Optional)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+
 # Server
 NODE_ENV=production
 PORT=4000
@@ -184,8 +188,8 @@ sulik/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/sulik.git
-cd sulik
+git clone https://github.com/stamakunov7/CarMarket.git
+cd CarMarket
 ```
 
 2. **Install dependencies**
@@ -306,15 +310,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🚀 Live Demo
 
 - **Frontend**: [Live Demo](https://car-market-sage.vercel.app/)
-- **Backend API**: [Render.com Backend](https://your-backend-url.onrender.com) (May take 30-60 seconds to wake up)
-- **Health Check**: [System Status](https://your-backend-url.onrender.com/health)
+- **Backend API**: [Render.com Backend](https://carmarket-wo6e.onrender.com/) (May take 30-60 seconds to wake up)
+- **Health Check**: [System Status](https://carmarket-wo6e.onrender.com/health)
 
 ## 👨‍💻 Author
 
-**Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+**Temir Stam**
+- GitHub: [@stamakunov7](https://github.com/stamakunov7)
+- LinkedIn: [@stamakunov7](https://linkedin.com/in/stamakunov7)
+- Email: tstamakunov@stetson.edu
 
 ## 💼 Portfolio Project
 

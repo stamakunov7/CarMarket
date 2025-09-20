@@ -6,8 +6,14 @@ This document describes the REST API endpoints for the Car Marketplace applicati
 
 ## Base URL
 
+**Development:**
 ```
 http://localhost:4000/api
+```
+
+**Production:**
+```
+https://carmarket-wo6e.onrender.com/api
 ```
 
 ## Authentication
@@ -518,6 +524,47 @@ Get information about the current authenticated user.
 
 ---
 
+## Support API
+
+### Submit Support Request
+
+**POST** `/support`
+
+Submit a support request that will be sent to the admin via Telegram Bot.
+
+#### Request Body
+
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "subject": "Car listing issue",
+  "message": "I can't upload images for my car listing"
+}
+```
+
+#### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Your message has been sent successfully! We will get back to you soon."
+}
+```
+
+#### Error Response
+
+```json
+{
+  "success": false,
+  "error": "All fields are required"
+}
+```
+
+**Note:** This endpoint integrates with Telegram Bot to send notifications to the admin when support requests are submitted.
+
+---
+
 ## Error Codes
 
 | Code | Description |
@@ -532,11 +579,16 @@ Get information about the current authenticated user.
 
 ## Rate Limiting
 
-Currently no rate limiting is implemented, but it's recommended for production use.
+Rate limiting is implemented with the following limits:
+- **General API**: 100 requests per 15 minutes per IP
+- **Authentication endpoints**: 5 attempts per 15 minutes per IP
+- **File upload**: 10 requests per 15 minutes per IP
 
 ## CORS
 
-The API supports CORS for `http://localhost:3000` in development mode.
+The API supports CORS for:
+- **Development**: `http://localhost:3000`
+- **Production**: `https://car-market-sage.vercel.app`
 
 ## File Upload Limits
 
