@@ -2,7 +2,7 @@
 
 A full-stack car marketplace application built with React, TypeScript, Node.js, and PostgreSQL. Features advanced search, image management, user authentication, and real-time filtering capabilities.
 
-![CarMarket Marketplace](https://via.placeholder.com/1200x600/1f2937/ffffff?text=Sulik+Car+Marketplace)
+![CarMarket Marketplace](./screenshots/homepage.png)
 
 ## 🌟 Features
 
@@ -129,22 +129,28 @@ PORT=4000
 ## 📱 Screenshots
 
 ### Homepage with Car Listings
-![Homepage](https://via.placeholder.com/1200x600/1f2937/ffffff?text=Sulik+Car+Marketplace+-+Homepage)
+![Homepage](./screenshots/homepage.png)
 
 ### Advanced Search & Filtering
-![Search](https://via.placeholder.com/1200x600/3b82f6/ffffff?text=Advanced+Search+%26+Filtering+Interface)
+![Search](./screenshots/search.png)
 
 ### Car Details Page
-![Car Details](https://via.placeholder.com/1200x600/10b981/ffffff?text=Car+Details+Page+with+Image+Gallery)
+![Car Details](./screenshots/car-details.png)
 
 ### User Dashboard
-![Dashboard](https://via.placeholder.com/1200x600/f59e0b/ffffff?text=User+Dashboard+with+Listings+Management)
+![Dashboard](./screenshots/dashboard.png)
 
 ### Mobile Responsive Design
-![Mobile](https://via.placeholder.com/400x800/8b5cf6/ffffff?text=Mobile+Responsive+Design)
+![Mobile](./screenshots/mobile.png)
 
 ### Authentication Modal
-![Auth](https://via.placeholder.com/800x600/ef4444/ffffff?text=Authentication+Modal)
+![Auth](./screenshots/auth.png)
+
+### Image Upload Interface
+![Upload](./screenshots/upload.png)
+
+### Support Page (Telegram Bot Integration)
+![Telegram Bot](./screenshots/telegram-bot.png)
 
 ## 🏗️ Project Structure
 
