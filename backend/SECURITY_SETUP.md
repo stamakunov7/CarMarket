@@ -74,7 +74,3 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 # Generate a secure random string
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
-
-## 📊 Security Score: 9/10
-
-Your application now has enterprise-level security features!
