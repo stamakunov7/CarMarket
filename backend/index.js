@@ -12,7 +12,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import winston from 'winston';
 import compression from 'compression';
-// import { createClient } from 'redis'; // Redis disabled
+import { createClient } from 'redis';
 import { uploadMultiple, handleUploadError, cleanupTempFiles } from './middleware/upload.js';
 import { uploadToCloudinary, deleteFromCloudinary } from './config/cloudinary.js';
 import axios from 'axios';
@@ -41,48 +41,115 @@ const logger = winston.createLogger({
   ]
 });
 
-// Redis completely disabled
-
-// Fallback in-memory cache for when Redis is unavailable
+// Redis configuration
+let redisClient = null;
 const fallbackCache = new Map();
 const CACHE_TTL = 5 * 60; // 5 minutes in seconds
 
+// Initialize Redis connection
+async function initializeRedis() {
+  try {
+    if (process.env.REDIS_URL) {
+      logger.info('Attempting to connect to Redis...');
+      redisClient = createClient({
+        url: process.env.REDIS_URL,
+        socket: {
+          connectTimeout: 5000,
+          lazyConnect: true
+        }
+      });
+      
+      redisClient.on('error', (err) => {
+        logger.warn('Redis Client Error:', err.message);
+        redisClient = null;
+      });
+      
+      redisClient.on('connect', () => {
+        logger.info('✅ Redis connected successfully');
+      });
+      
+      redisClient.on('ready', () => {
+        logger.info('✅ Redis ready for operations');
+      });
+      
+      redisClient.on('end', () => {
+        logger.warn('Redis connection ended');
+        redisClient = null;
+      });
+      
+      await redisClient.connect();
+      return true;
+    } else {
+      logger.warn('⚠️  REDIS_URL not configured, using in-memory cache only');
+      logger.info('💡 To enable Redis caching, add REDIS_URL to your environment variables');
+      return false;
+    }
+  } catch (error) {
+    logger.warn('❌ Failed to connect to Redis:', error.message);
+    logger.info('💡 Continuing with in-memory cache only');
+    redisClient = null;
+    return false;
+  }
+}
+
 // Cache functions with Redis fallback
 const getCached = async (key) => {
-  logger.info(`Getting cached data for key: ${key}`);
+  logger.debug(`Getting cached data for key: ${key}`);
   
-  // Redis disabled - using in-memory cache only
+  // Try Redis first
+  if (redisClient) {
+    try {
+      const cached = await redisClient.get(key);
+      if (cached) {
+        logger.info(`✅ Cache hit from Redis: ${key}`);
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      logger.warn('Redis get error:', error.message);
+      // If Redis fails, set client to null to use fallback
+      redisClient = null;
+    }
+  }
   
   // Fallback to in-memory cache
   const item = fallbackCache.get(key);
   if (item && Date.now() - item.timestamp < CACHE_TTL * 1000) {
-    logger.info(`Cache hit from fallback: ${key}`);
+    logger.info(`✅ Cache hit from in-memory: ${key}`);
     return item.data;
   }
   
   if (item) {
     fallbackCache.delete(key);
-    logger.info(`Expired fallback cache entry deleted: ${key}`);
+    logger.debug(`Expired in-memory cache entry deleted: ${key}`);
   }
   
-  logger.info(`No cached data found for key: ${key}`);
+  logger.debug(`❌ No cached data found for key: ${key}`);
   return null;
 };
 
 const setCache = async (key, data) => {
-  logger.info(`Setting cache for key: ${key}`);
+  logger.debug(`Setting cache for key: ${key}`);
   
-  // Redis disabled - using in-memory cache only
+  // Try Redis first
+  if (redisClient) {
+    try {
+      await redisClient.setEx(key, CACHE_TTL, JSON.stringify(data));
+      logger.info(`✅ Data cached in Redis: ${key}`);
+      return;
+    } catch (error) {
+      logger.warn('Redis set error:', error.message);
+      // If Redis fails, set client to null to use fallback
+      redisClient = null;
+    }
+  }
   
   // Fallback to in-memory cache
   fallbackCache.set(key, {
     data,
     timestamp: Date.now()
   });
-  logger.info(`Data cached in fallback: ${key}`);
+  logger.info(`✅ Data cached in in-memory: ${key}`);
 };
-
-// Redis completely disabled
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -784,6 +851,19 @@ app.get('/api/listings', async (req, res) => {
     radius
   } = req.query;
 
+  // Create cache key based on query parameters
+  const cacheKey = `listings:${JSON.stringify(req.query)}`;
+  
+  // Try to get cached data first
+  const cachedData = await getCached(cacheKey);
+  if (cachedData) {
+    logger.info(`Listings served from cache for key: ${cacheKey}`);
+    return res.status(200).json({
+      ...cachedData,
+      cached: true
+    });
+  }
+
   const offset = (page - 1) * limit;
   const validSortFields = ['created_at', 'price', 'year', 'mileage', 'title'];
   const validSortOrders = ['asc', 'desc'];
@@ -1152,7 +1232,7 @@ app.get('/api/listings', async (req, res) => {
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
 
-    res.status(200).json({
+    const responseData = {
       success: true,
       data: {
         listings: listings.rows,
@@ -1183,7 +1263,12 @@ app.get('/api/listings', async (req, res) => {
           available: filterOptions.rows[0] || {}
         }
       }
-    });
+    };
+
+    // Cache the response for 2 minutes (shorter cache for dynamic content)
+    await setCache(cacheKey, responseData);
+
+    res.status(200).json(responseData);
   } catch (err) {
     console.error('Error fetching listings:', err);
     res.status(500).json({ 
@@ -1517,6 +1602,50 @@ app.get('/api/listings/:id/similar', async (req, res) => {
   }
 });
 
+// Cache test endpoint
+app.get('/api/cache/test', async (req, res) => {
+  try {
+    const testKey = 'test_cache';
+    const testData = { 
+      message: 'Hello from cache!', 
+      timestamp: new Date().toISOString(),
+      random: Math.random()
+    };
+    
+    // Try to get from cache first
+    const cachedData = await getCached(testKey);
+    if (cachedData) {
+      return res.json({
+        success: true,
+        message: 'Data served from cache',
+        data: cachedData,
+        cacheType: redisClient ? 'Redis' : 'In-Memory',
+        redisConnected: !!redisClient,
+        redisUrl: process.env.REDIS_URL ? 'configured' : 'not configured'
+      });
+    }
+    
+    // If not in cache, set it
+    await setCache(testKey, testData);
+    
+    res.json({
+      success: true,
+      message: 'Data cached successfully',
+      data: testData,
+      cacheType: redisClient ? 'Redis' : 'In-Memory',
+      redisConnected: !!redisClient,
+      redisUrl: process.env.REDIS_URL ? 'configured' : 'not configured'
+    });
+  } catch (error) {
+    logger.error('Cache test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Cache test failed',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
@@ -1525,9 +1654,21 @@ app.get('/health', async (req, res) => {
     await pool.query('SELECT 1');
     const dbDuration = Date.now() - dbStart;
     
-    // Redis disabled
+    // Redis status
     let redisStatus = 'disabled';
     let redisResponseTime = 'N/A';
+    
+    if (redisClient) {
+      try {
+        const redisStart = Date.now();
+        await redisClient.ping();
+        redisResponseTime = `${Date.now() - redisStart}ms`;
+        redisStatus = 'connected';
+      } catch (error) {
+        redisStatus = 'error';
+        redisResponseTime = 'N/A';
+      }
+    }
     
     const health = {
       status: 'healthy',
@@ -1543,11 +1684,11 @@ app.get('/health', async (req, res) => {
         responseTime: redisResponseTime
       },
       cache: {
-        type: 'in-memory',
+        type: redisClient ? 'redis' : 'in-memory',
         fallbackSize: fallbackCache.size,
         fallbackEntries: Array.from(fallbackCache.keys()),
-        redisConnected: false,
-        redisKeys: []
+        redisConnected: !!redisClient,
+        redisKeys: redisClient ? await redisClient.keys('*') : []
       },
       environment: process.env.NODE_ENV || 'development'
     };
@@ -1671,17 +1812,20 @@ app.listen(port, async () => {
   // Инициализация базы данных
   await initializeDatabase();
   
+  // Инициализация Redis
+  const redisConnected = await initializeRedis();
+  
   logger.info('🚀 Server started', {
     port,
     environment: process.env.NODE_ENV || 'development',
-    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'In-Memory Cache']
+    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'Redis Cache']
   });
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 Security features enabled: Helmet, Rate Limiting`);
   console.log(`📝 Logging enabled: Winston`);
-  console.log(`⚡ Performance features: Compression, Health Check, In-Memory Cache`);
-  console.log(`💾 Cache: In-Memory (Redis disabled)`);
+  console.log(`⚡ Performance features: Compression, Health Check, Redis Cache`);
+  console.log(`💾 Cache: ${redisConnected ? 'Redis + In-Memory Fallback' : 'In-Memory Only (Redis not configured)'}`);
   if (TELEGRAM_BOT_TOKEN) {
     console.log(`📱 Telegram Bot: Configured`);
   } else {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 const API_BASE_URL = 'https://carmarket-wo6e.onrender.com/api';
 
@@ -47,9 +47,33 @@ export interface ListingWithImages extends Listing {
   }>;
 }
 
+// Cache for API responses
+const responseCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
 export const useListings = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper function to check cache
+  const getCachedData = useCallback((key: string) => {
+    const cached = responseCache.get(key);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return cached.data;
+    }
+    if (cached) {
+      responseCache.delete(key);
+    }
+    return null;
+  }, []);
+
+  // Helper function to set cache
+  const setCachedData = useCallback((key: string, data: any) => {
+    responseCache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }, []);
 
   const createListing = async (data: CreateListingData): Promise<Listing | null> => {
     try {
@@ -112,7 +136,7 @@ export const useListings = () => {
     }
   };
 
-  const getListings = async (filters?: {
+  const getListings = useCallback(async (filters?: {
     page?: number;
     limit?: number;
     make?: string;
@@ -139,6 +163,15 @@ export const useListings = () => {
     generation?: string[];
   }): Promise<{ listings: Listing[]; pagination: any; filters: any } | null> => {
     try {
+      // Create cache key
+      const cacheKey = `listings:${JSON.stringify(filters || {})}`;
+      
+      // Check cache first
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -169,6 +202,8 @@ export const useListings = () => {
       const result = await response.json();
       
       if (result.success) {
+        // Cache the result
+        setCachedData(cacheKey, result.data);
         return result.data;
       } else {
         throw new Error(result.message || 'Failed to fetch listings');
@@ -180,7 +215,7 @@ export const useListings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getCachedData, setCachedData]);
 
   const getListingWithImages = async (listingId: number): Promise<ListingWithImages | null> => {
     try {
@@ -212,8 +247,16 @@ export const useListings = () => {
     }
   };
 
-  const getFilterOptions = async (): Promise<any> => {
+  const getFilterOptions = useCallback(async (): Promise<any> => {
     try {
+      const cacheKey = 'filter_options';
+      
+      // Check cache first
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -226,6 +269,8 @@ export const useListings = () => {
       const result = await response.json();
       
       if (result.success) {
+        // Cache the result for longer (filter options don't change often)
+        setCachedData(cacheKey, result.data);
         return result.data;
       } else {
         throw new Error(result.message || 'Failed to fetch filter options');
@@ -237,7 +282,7 @@ export const useListings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getCachedData, setCachedData]);
 
   const getSearchSuggestions = async (query: string): Promise<any> => {
     try {
