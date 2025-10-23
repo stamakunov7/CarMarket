@@ -2,6 +2,12 @@
 
 A full-stack car marketplace application built with React, TypeScript, Node.js, and PostgreSQL. Features advanced search, image management, user authentication, and real-time filtering capabilities. Link: [CarMarket Live](https://car-market-sage.vercel.app/)
 
+## 🚨 Backend Server Offline
+
+Due to Render.com free tier limitations, the backend and database are currently **unavailable**.  
+API requests (e.g., fetching listings) will fail until the server is redeployed or plan upgraded to paid.
+
+
 ![CarMarket Marketplace](./screenshots/homepage.png)
 
 ## 🌟 Features
