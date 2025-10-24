@@ -66,6 +66,8 @@ if (!process.env.JWT_SECRET) {
 // Check for database connection (Railway provides DATABASE_URL)
 if (!process.env.DATABASE_URL && !process.env.PGPASSWORD) {
   console.error('❌ DATABASE_URL or PGPASSWORD environment variable is required!');
+  console.error('💡 Railway should provide DATABASE_URL automatically');
+  console.error('💡 Check Railway dashboard → Variables → DATABASE_URL');
   process.exit(1);
 }
 
