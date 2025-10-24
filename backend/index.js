@@ -15,6 +15,7 @@ import compression from 'compression';
 import { createClient } from 'redis';
 import { uploadMultiple, handleUploadError, cleanupTempFiles } from './middleware/upload.js';
 import { uploadToCloudinary, deleteFromCloudinary } from './config/cloudinary.js';
+import { initializeRailwayRedis, getCached, setCache, clearCache, getCacheStats, closeRedis } from './redis-config.js';
 import axios from 'axios';
 
 // Load environment variables
@@ -46,110 +47,12 @@ let redisClient = null;
 const fallbackCache = new Map();
 const CACHE_TTL = 5 * 60; // 5 minutes in seconds
 
-// Initialize Redis connection
+// Initialize Redis connection (Railway optimized)
 async function initializeRedis() {
-  try {
-    if (process.env.REDIS_URL) {
-      logger.info('Attempting to connect to Redis...');
-      redisClient = createClient({
-        url: process.env.REDIS_URL,
-        socket: {
-          connectTimeout: 5000,
-          lazyConnect: true
-        }
-      });
-      
-      redisClient.on('error', (err) => {
-        logger.warn('Redis Client Error:', err.message);
-        redisClient = null;
-      });
-      
-      redisClient.on('connect', () => {
-        logger.info('✅ Redis connected successfully');
-      });
-      
-      redisClient.on('ready', () => {
-        logger.info('✅ Redis ready for operations');
-      });
-      
-      redisClient.on('end', () => {
-        logger.warn('Redis connection ended');
-        redisClient = null;
-      });
-      
-      await redisClient.connect();
-      return true;
-    } else {
-      logger.warn('⚠️  REDIS_URL not configured, using in-memory cache only');
-      logger.info('💡 To enable Redis caching, add REDIS_URL to your environment variables');
-      return false;
-    }
-  } catch (error) {
-    logger.warn('❌ Failed to connect to Redis:', error.message);
-    logger.info('💡 Continuing with in-memory cache only');
-    redisClient = null;
-    return false;
-  }
+  return await initializeRailwayRedis();
 }
 
-// Cache functions with Redis fallback
-const getCached = async (key) => {
-  logger.debug(`Getting cached data for key: ${key}`);
-  
-  // Try Redis first
-  if (redisClient) {
-    try {
-      const cached = await redisClient.get(key);
-      if (cached) {
-        logger.info(`✅ Cache hit from Redis: ${key}`);
-        return JSON.parse(cached);
-      }
-    } catch (error) {
-      logger.warn('Redis get error:', error.message);
-      // If Redis fails, set client to null to use fallback
-      redisClient = null;
-    }
-  }
-  
-  // Fallback to in-memory cache
-  const item = fallbackCache.get(key);
-  if (item && Date.now() - item.timestamp < CACHE_TTL * 1000) {
-    logger.info(`✅ Cache hit from in-memory: ${key}`);
-    return item.data;
-  }
-  
-  if (item) {
-    fallbackCache.delete(key);
-    logger.debug(`Expired in-memory cache entry deleted: ${key}`);
-  }
-  
-  logger.debug(`❌ No cached data found for key: ${key}`);
-  return null;
-};
-
-const setCache = async (key, data) => {
-  logger.debug(`Setting cache for key: ${key}`);
-  
-  // Try Redis first
-  if (redisClient) {
-    try {
-      await redisClient.setEx(key, CACHE_TTL, JSON.stringify(data));
-      logger.info(`✅ Data cached in Redis: ${key}`);
-      return;
-    } catch (error) {
-      logger.warn('Redis set error:', error.message);
-      // If Redis fails, set client to null to use fallback
-      redisClient = null;
-    }
-  }
-  
-  // Fallback to in-memory cache
-  fallbackCache.set(key, {
-    data,
-    timestamp: Date.now()
-  });
-  logger.info(`✅ Data cached in in-memory: ${key}`);
-};
+// Cache functions are now imported from redis-config.js
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -160,25 +63,32 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-if (!process.env.PGPASSWORD) {
-  console.error('❌ PGPASSWORD environment variable is required!');
+// Check for database connection (Railway provides DATABASE_URL)
+if (!process.env.DATABASE_URL && !process.env.PGPASSWORD) {
+  console.error('❌ DATABASE_URL or PGPASSWORD environment variable is required!');
   process.exit(1);
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-// Настройка базы данных PostgreSQL
+// Настройка базы данных PostgreSQL (Railway optimized)
 const pool = new pg.Pool({
-  user: process.env.PGUSER || 'caruser',
-  host: process.env.PGHOST || 'localhost',
-  database: process.env.PGDATABASE || 'cardb',
-  password: process.env.PGPASSWORD,
-  port: process.env.PGPORT || 5432,
-  // Production optimizations
+  // Railway предоставляет DATABASE_URL автоматически
+  connectionString: process.env.DATABASE_URL,
+  // Fallback для локальной разработки (только если DATABASE_URL не установлен)
+  ...(process.env.DATABASE_URL ? {} : {
+    user: process.env.PGUSER || 'caruser',
+    host: process.env.PGHOST || 'localhost',
+    database: process.env.PGDATABASE || 'cardb',
+    password: process.env.PGPASSWORD,
+    port: process.env.PGPORT || 5432,
+  }),
+  // Railway оптимизации
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000, // Увеличено для Railway
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 // Автоматическая инициализация базы данных
@@ -1807,6 +1717,19 @@ app.post('/api/support', async (req, res) => {
   }
 });
 
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully...');
+  await closeRedis();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully...');
+  await closeRedis();
+  process.exit(0);
+});
+
 // Запуск сервера
 app.listen(port, async () => {
   // Инициализация базы данных
@@ -1815,17 +1738,17 @@ app.listen(port, async () => {
   // Инициализация Redis
   const redisConnected = await initializeRedis();
   
-  logger.info('🚀 Server started', {
+  logger.info('🚀 Server started on Railway', {
     port,
     environment: process.env.NODE_ENV || 'development',
-    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'Redis Cache']
+    features: ['Helmet', 'Rate Limiting', 'Winston Logging', 'Compression', 'Health Check', 'Railway Redis Cache']
   });
-  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`🚀 Server running on port ${port}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 Security features enabled: Helmet, Rate Limiting`);
   console.log(`📝 Logging enabled: Winston`);
-  console.log(`⚡ Performance features: Compression, Health Check, Redis Cache`);
-  console.log(`💾 Cache: ${redisConnected ? 'Redis + In-Memory Fallback' : 'In-Memory Only (Redis not configured)'}`);
+  console.log(`⚡ Performance features: Compression, Health Check, Railway Redis Cache`);
+  console.log(`💾 Cache: ${redisConnected ? 'Railway Redis + In-Memory Fallback' : 'In-Memory Only (Redis not configured)'}`);
   if (TELEGRAM_BOT_TOKEN) {
     console.log(`📱 Telegram Bot: Configured`);
   } else {
