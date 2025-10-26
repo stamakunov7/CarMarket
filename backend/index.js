@@ -69,11 +69,13 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✅ Present' : '❌ Mis
 console.log('PGPASSWORD:', process.env.PGPASSWORD ? '✅ Present' : '❌ Missing');
 console.log('REDIS_URL:', process.env.REDIS_URL ? '✅ Present' : '❌ Missing');
 
+// TEMPORARY: Allow app to start without database for debugging
 if (!process.env.DATABASE_URL && !process.env.PGPASSWORD) {
-  console.error('❌ DATABASE_URL or PGPASSWORD environment variable is required!');
-  console.error('💡 Railway should provide DATABASE_URL automatically');
-  console.error('💡 Check Railway dashboard → Variables → DATABASE_URL');
-  process.exit(1);
+  console.warn('⚠️ DATABASE_URL or PGPASSWORD environment variable is missing!');
+  console.warn('💡 Railway should provide DATABASE_URL automatically');
+  console.warn('💡 Check Railway dashboard → Variables → DATABASE_URL');
+  console.warn('🚀 Starting app in debug mode without database...');
+  // process.exit(1); // Commented out for debugging
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
