@@ -78,6 +78,14 @@ if (!process.env.DATABASE_URL && !process.env.PGPASSWORD) {
   // process.exit(1); // Commented out for debugging
 }
 
+console.log('🚀 Starting CarMarket application...');
+console.log('📊 Environment check:');
+console.log('  - NODE_ENV:', process.env.NODE_ENV);
+console.log('  - PORT:', process.env.PORT);
+console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ Present' : '❌ Missing');
+console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? '✅ Present' : '❌ Missing');
+console.log('  - REDIS_URL:', process.env.REDIS_URL ? '✅ Present' : '❌ Missing');
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
