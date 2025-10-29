@@ -1,6 +1,6 @@
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // Ensure uploads directory exists
 const uploadsDir = 'uploads';
@@ -45,13 +45,13 @@ const upload = multer({
 });
 
 // Middleware for single image upload
-export const uploadSingle = upload.single('image');
+const uploadSingle = upload.single('image');
 
 // Middleware for multiple image uploads
-export const uploadMultiple = upload.array('images', 10);
+const uploadMultiple = upload.array('images', 10);
 
 // Error handling middleware for multer
-export const handleUploadError = (error, req, res, next) => {
+const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ 
@@ -80,7 +80,7 @@ export const handleUploadError = (error, req, res, next) => {
 };
 
 // Cleanup function to remove temporary files
-export const cleanupTempFiles = (files) => {
+const cleanupTempFiles = (files) => {
   if (files) {
     const fileArray = Array.isArray(files) ? files : [files];
     fileArray.forEach(file => {
@@ -89,4 +89,11 @@ export const cleanupTempFiles = (files) => {
       }
     });
   }
+};
+
+module.exports = {
+  uploadSingle,
+  uploadMultiple,
+  handleUploadError,
+  cleanupTempFiles
 };

@@ -100,8 +100,13 @@ const ProfilePage: React.FC = () => {
   const fetchListings = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      
       const response = await fetch('https://carmarket-production.up.railway.app/api/users/me/listings', {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
@@ -125,12 +130,13 @@ const ProfilePage: React.FC = () => {
   const handleCreateListing = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('https://carmarket-production.up.railway.app/api/users/me/listings', {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -162,12 +168,13 @@ const ProfilePage: React.FC = () => {
     if (!editingListing) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`https://carmarket-production.up.railway.app/api/users/me/listings/${editingListing.id}`, {
         method: 'PUT',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({
           ...formData,
           status: editingListing.status // Preserve the current status
@@ -229,9 +236,13 @@ const ProfilePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`https://carmarket-production.up.railway.app/api/users/me/listings/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
       });
 
       if (!response.ok) {

@@ -1,7 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const cloudinary = require('cloudinary').v2;
+require('dotenv').config();
 
 // Configure Cloudinary
 cloudinary.config({
@@ -10,10 +8,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export default cloudinary;
-
 // Helper function to upload image to Cloudinary
-export const uploadToCloudinary = async (file, folder = 'car-marketplace') => {
+const uploadToCloudinary = async (file, folder = 'car-marketplace') => {
   try {
     const result = await cloudinary.uploader.upload(file.path, {
       folder: folder,
@@ -39,7 +35,7 @@ export const uploadToCloudinary = async (file, folder = 'car-marketplace') => {
 };
 
 // Helper function to delete image from Cloudinary
-export const deleteFromCloudinary = async (publicId) => {
+const deleteFromCloudinary = async (publicId) => {
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     return {
@@ -53,4 +49,10 @@ export const deleteFromCloudinary = async (publicId) => {
       error: error.message
     };
   }
+};
+
+module.exports = {
+  cloudinary,
+  uploadToCloudinary,
+  deleteFromCloudinary
 };
