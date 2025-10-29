@@ -64,7 +64,7 @@ const CarDetailsPage: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`https://carmarket-wo6e.onrender.com/api/listings/${id}`);
+        const response = await fetch(`https://carmarket-production.up.railway.app/api/listings/${id}`);
         const data = await response.json();
         
         if (response.ok) {

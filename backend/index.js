@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-console.log('🚀 Starting CarMarket application (DEBUG MODE)...');
+console.log('🚀 Starting CarMarket application...');
 console.log('📊 Environment check:');
 console.log('  - NODE_ENV:', process.env.NODE_ENV);
 console.log('  - PORT:', process.env.PORT);
@@ -23,24 +23,137 @@ app.use(cors({
   credentials: true
 }));
 
-console.log('🔧 Setting up basic health endpoint...');
+// Basic health endpoint
 app.get('/health', (req, res) => {
   console.log('🏥 Health check requested');
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    message: 'Debug mode - basic health check',
+    message: 'CarMarket API is running',
     uptime: process.uptime()
   });
 });
 
-console.log('🔧 Setting up basic root endpoint...');
+// Root endpoint
 app.get('/', (req, res) => {
   console.log('🏠 Root endpoint requested');
   res.json({
-    message: 'CarMarket API - Debug Mode',
+    message: 'CarMarket API',
     status: 'running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  console.log('🧪 Test endpoint requested');
+  console.log('🧪 Origin:', req.headers.origin);
+  res.json({
+    success: true,
+    message: 'Test endpoint working',
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin
+  });
+});
+
+// Mock API endpoints for testing
+app.get('/api/listings', (req, res) => {
+  console.log('📋 Listings endpoint requested');
+  console.log('📋 Origin:', req.headers.origin);
+  console.log('📋 User-Agent:', req.headers['user-agent']);
+  console.log('📋 Query params:', req.query);
+  res.json({
+    success: true,
+    data: {
+      listings: [],
+      pagination: {
+        page: 1,
+        limit: 12,
+        total: 0,
+        pages: 0
+      }
+    },
+    message: 'No listings found'
+  });
+});
+
+app.get('/api/listings/:id', (req, res) => {
+  console.log(`📋 Single listing endpoint requested for ID: ${req.params.id}`);
+  res.status(404).json({
+    success: false,
+    message: 'Listing not found'
+  });
+});
+
+app.get('/api/listings/filters/options', (req, res) => {
+  console.log('🔍 Filter options endpoint requested');
+  res.json({
+    success: true,
+    data: {
+      makes: [],
+      models: [],
+      bodyTypes: [],
+      fuelTypes: [],
+      transmissions: [],
+      conditions: [],
+      colors: []
+    }
+  });
+});
+
+// Auth endpoints (mock)
+app.post('/api/register', (req, res) => {
+  console.log('👤 Register endpoint requested');
+  res.status(201).json({
+    success: true,
+    message: 'User registered successfully',
+    user: { id: 1, username: req.body.username, email: req.body.email }
+  });
+});
+
+app.post('/api/login', (req, res) => {
+  console.log('🔐 Login endpoint requested');
+  res.json({
+    success: true,
+    message: 'Login successful',
+    user: { id: 1, username: 'testuser', email: req.body.email },
+    token: 'mock-jwt-token'
+  });
+});
+
+app.get('/api/me', (req, res) => {
+  console.log('👤 Me endpoint requested');
+  res.json({
+    success: true,
+    user: { id: 1, username: 'testuser', email: 'test@example.com' }
+  });
+});
+
+// User listings endpoints (mock)
+app.get('/api/users/me/listings', (req, res) => {
+  console.log('📋 User listings endpoint requested');
+  res.json({
+    success: true,
+    listings: []
+  });
+});
+
+app.post('/api/users/me/listings', (req, res) => {
+  console.log('➕ Create listing endpoint requested');
+  res.status(201).json({
+    success: true,
+    message: 'Listing created successfully',
+    listing: { id: 1, ...req.body }
+  });
+});
+
+// Support endpoint
+app.post('/api/support', (req, res) => {
+  console.log('📧 Support endpoint requested');
+  res.json({
+    success: true,
+    message: 'Support request received'
   });
 });
 
@@ -51,6 +164,7 @@ try {
   app.listen(PORT, () => {
     console.log(`🚀 CarMarket server running on port ${PORT}`);
     console.log(`🌐 Health check available at: http://localhost:${PORT}/health`);
+    console.log(`📋 API endpoints available at: http://localhost:${PORT}/api`);
     console.log('✅ Application startup completed successfully!');
   });
 } catch (error) {

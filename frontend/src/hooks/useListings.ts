@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 
-const API_BASE_URL = 'https://carmarket-wo6e.onrender.com/api';
+const API_BASE_URL = 'https://carmarket-production.up.railway.app/api';
 
 export interface CreateListingData {
   title: string;

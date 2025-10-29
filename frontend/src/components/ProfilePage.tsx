@@ -100,7 +100,7 @@ const ProfilePage: React.FC = () => {
   const fetchListings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://carmarket-wo6e.onrender.com/api/users/me/listings', {
+      const response = await fetch('https://carmarket-production.up.railway.app/api/users/me/listings', {
         credentials: 'include'
       });
 
@@ -125,7 +125,7 @@ const ProfilePage: React.FC = () => {
   const handleCreateListing = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://carmarket-wo6e.onrender.com/api/users/me/listings', {
+      const response = await fetch('https://carmarket-production.up.railway.app/api/users/me/listings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +162,7 @@ const ProfilePage: React.FC = () => {
     if (!editingListing) return;
 
     try {
-      const response = await fetch(`https://carmarket-wo6e.onrender.com/api/users/me/listings/${editingListing.id}`, {
+      const response = await fetch(`https://carmarket-production.up.railway.app/api/users/me/listings/${editingListing.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +229,7 @@ const ProfilePage: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
 
     try {
-      const response = await fetch(`https://carmarket-wo6e.onrender.com/api/users/me/listings/${id}`, {
+      const response = await fetch(`https://carmarket-production.up.railway.app/api/users/me/listings/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -251,7 +251,7 @@ const ProfilePage: React.FC = () => {
     
     // Fetch full listing details including all fields
     try {
-      const response = await fetch(`https://carmarket-wo6e.onrender.com/api/listings/${listing.id}`);
+      const response = await fetch(`https://carmarket-production.up.railway.app/api/listings/${listing.id}`);
       if (response.ok) {
         const data = await response.json();
         const fullListing = data.data.listing;

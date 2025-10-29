@@ -2,11 +2,10 @@
   "name": "car-marketplace-backend",
   "version": "1.0.0",
   "description": "Backend API for car marketplace",
-  "main": "backend/index.js",
-  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "start": "cd backend && node index.js",
-    "dev": "cd backend && nodemon index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "axios": "^1.12.2",

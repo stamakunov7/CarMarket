@@ -73,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     const fetchFilterOptions = async () => {
       try {
         console.log('Fetching filter options...');
-        const response = await fetch('https://carmarket-wo6e.onrender.com/api/listings/filters/options');
+        const response = await fetch('https://carmarket-production.up.railway.app/api/listings/filters/options');
         console.log('Response status:', response.status);
         const data = await response.json();
         console.log('Filter options data:', data);
