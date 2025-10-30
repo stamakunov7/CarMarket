@@ -252,6 +252,14 @@ async function sendTelegramMessage(message) {
 // Health endpoint
 app.get('/health', async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(503).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        error: 'Database pool not initialized'
+      });
+    }
+
     const dbStart = Date.now();
     await pool.query('SELECT 1');
     const dbDuration = Date.now() - dbStart;
@@ -267,10 +275,12 @@ app.get('/health', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Health check database error:', error);
     res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      error: 'Database connection failed'
+      error: 'Database connection failed',
+      details: error.message
     });
   }
 });
@@ -1086,12 +1096,12 @@ app.post('/api/support', async (req, res) => {
 
 // Initialize database and start server
 async function startServer() {
-  await initializeDatabase();
-  
-  console.log('🔧 Starting server...');
-  const PORT = process.env.PORT || 4000;
-
   try {
+    await initializeDatabase();
+    
+    console.log('🔧 Starting server...');
+    const PORT = process.env.PORT || 4000;
+
     app.listen(PORT, () => {
       console.log(`🚀 CarMarket server running on port ${PORT}`);
       console.log(`🌐 Health check available at: http://localhost:${PORT}/health`);
@@ -1100,6 +1110,7 @@ async function startServer() {
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
+    console.error('❌ Full error:', error);
     process.exit(1);
   }
 }
