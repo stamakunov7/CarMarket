@@ -2,10 +2,10 @@
 
 A full-stack car marketplace application built with React, TypeScript, Node.js, and PostgreSQL. Features advanced search, image management, user authentication, and real-time filtering capabilities. Link: [CarMarket Live](https://car-market-sage.vercel.app/)
 
-## 🚨 Backend Server Offline
+## ✅ Backend is Live on Railway
 
-Due to Render.com free tier limitations, the backend and database are currently **unavailable**.  
-API requests (e.g., fetching listings) will fail until the server is redeployed or plan upgraded to paid.
+Backend and PostgreSQL are deployed on Railway. On serverless plans, services can sleep when idle.  
+After a cold start, the first response may take 30–60 seconds. If listings don’t appear immediately, please wait and click the “Fetch listings again” button in the UI.
 
 
 ![CarMarket Marketplace](./screenshots/homepage.png)
@@ -75,7 +75,7 @@ API requests (e.g., fetching listings) will fail until the server is redeployed 
 - **Cloudinary** - Image storage and optimization
 - **In-Memory Cache** - Fallback caching system
 - **Docker** - Containerization
-- **Render.com** - Cloud deployment platform
+- **Railway** - Backend & PostgreSQL hosting
 - **Vercel** - Frontend hosting
 - **Winston** - Application logging
 
@@ -90,14 +90,14 @@ API requests (e.g., fetching listings) will fail until the server is redeployed 
 ## 🚀 Deployment
 
 ### **Current Deployment Status**
-- **Frontend**: Deployed on Vercel (Production Ready)
-- **Backend**: Deployed on Render.com (Free Tier - Sleeps after 15 minutes of inactivity)
-- **Database**: PostgreSQL on Render.com
+- **Frontend**: Vercel (Production)
+- **Backend**: Railway (Serverless – wakes on first request)
+- **Database**: PostgreSQL on Railway
 - **Images**: Cloudinary CDN
-- **Caching**: In-memory fallback cache (Redis disabled on free tier)
+- **Caching**: In‑memory fallback cache (Redis optional)
 
 ### **Deployment Notes**
-> ⚠️ **Backend Sleep Mode**: The backend enters sleep mode after 15 minutes of inactivity due to Render.com free tier limitations. This is expected behavior for free hosting plans. The backend will automatically wake up when a request is made, but there may be a 30-60 second delay for the first request after sleep.
+> ⚠️ **Cold Start (Railway)**: the first request after inactivity can take 30–60 seconds, then everything is fast. If you see an empty list, click “Fetch listings again”.
 
 ### **Production Readiness**
 ✅ **Security**: Enterprise-level security with Helmet.js, rate limiting, and input validation  
@@ -316,8 +316,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🚀 Live Demo
 
 - **Frontend**: [Live Demo](https://car-market-sage.vercel.app/)
-- **Backend API**: [Render.com Backend](https://carmarket-wo6e.onrender.com/) (May take 30-60 seconds to wake up)
-- **Health Check**: [System Status](https://carmarket-wo6e.onrender.com/health)
+- **Backend API**: https://carmarket-production.up.railway.app
+- **Health Check**: https://carmarket-production.up.railway.app/health
 
 ## 👨‍💻 Author
 
@@ -341,7 +341,7 @@ This project demonstrates expertise in:
 - React team for the amazing framework
 - Tailwind CSS for the utility-first approach
 - Cloudinary for image management
-- Render.com for hosting infrastructure
+- Railway for hosting infrastructure
 - PostgreSQL community for the robust database
 
 ---
