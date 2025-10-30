@@ -1,4 +1,6 @@
+console.log('🔧 Loading dotenv...');
 require('dotenv').config();
+console.log('✅ Dotenv loaded');
 
 console.log('🚀 Starting CarMarket application with full database integration...');
 console.log('📊 Environment check:');
@@ -8,17 +10,21 @@ console.log('  - JWT_SECRET:', process.env.JWT_SECRET ? '✅ Present' : '❌ Mis
 console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? '✅ Present' : '❌ Missing');
 console.log('  - REDIS_URL:', process.env.REDIS_URL ? '✅ Present' : '❌ Missing');
 console.log('  - TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? '✅ Present' : '❌ Missing');
+console.log('  - TELEGRAM_CHAT_ID:', process.env.TELEGRAM_CHAT_ID ? '✅ Present' : '❌ Missing');
 
 console.log('🔧 Initializing Express app...');
 const express = require('express');
 const app = express();
+console.log('✅ Express loaded');
 
 console.log('🔧 Setting up middleware...');
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+console.log('✅ Basic middleware set');
 
 console.log('🔧 Setting up CORS...');
 const cors = require('cors');
+console.log('✅ CORS loaded');
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -55,34 +61,50 @@ app.use('/api/login', authLimiter);
 const { Pool } = require('pg');
 let pool = null;
 
-// Initialize database connection
+// Initialize database connection with retry logic
 async function initializeDatabase() {
-  try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
+  const maxRetries = 5;
+  const retryDelay = 5000; // 5 seconds
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Database connection attempt ${attempt}/${maxRetries}...`);
+      
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is required');
+      }
 
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
-    
-    // Test connection
-    const client = await pool.connect();
-    console.log('✅ Database connected successfully');
-    
-    // Create all necessary tables
-    await createTables(client);
-    client.release();
-    
-    console.log('✅ Database tables created/verified');
-    return true;
-  } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    process.exit(1);
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000, // Increased timeout
+      });
+      
+      // Test connection
+      const client = await pool.connect();
+      console.log('✅ Database connected successfully');
+      
+      // Create all necessary tables
+      await createTables(client);
+      client.release();
+      
+      console.log('✅ Database tables created/verified');
+      return true;
+    } catch (error) {
+      console.error(`❌ Database connection attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        console.error('❌ All database connection attempts failed');
+        console.error('❌ This might be because PostgreSQL is sleeping on Railway free tier');
+        console.error('❌ Please wait a few minutes and try again, or upgrade to a paid plan');
+        process.exit(1);
+      }
+      
+      console.log(`⏳ Waiting ${retryDelay/1000} seconds before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
 }
 
