@@ -18,6 +18,8 @@ const app = express();
 console.log('✅ Express loaded');
 
 console.log('🔧 Setting up middleware...');
+// Behind Railway/Vercel proxies, trust the X-Forwarded-* headers
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 console.log('✅ Basic middleware set');
@@ -63,8 +65,8 @@ let pool = null;
 
 // Initialize database connection with retry logic
 async function initializeDatabase() {
-  const maxRetries = 5;
-  const retryDelay = 5000; // 5 seconds
+  const maxRetries = 10; // free tier can be slow to wake
+  const retryDelay = 8000; // 8 seconds
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -74,16 +76,25 @@ async function initializeDatabase() {
         throw new Error('DATABASE_URL environment variable is required');
       }
 
+      // close any previous pool before re-creating
+      if (pool) {
+        try { await pool.end(); } catch (e) {}
+      }
+
       pool = new Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         max: 20,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000, // Increased timeout
+        connectionTimeoutMillis: 15000,
+        statement_timeout: 30000,
       });
       
-      // Test connection
-      const client = await pool.connect();
+      // Guard connection attempt with timeout
+      const client = await Promise.race([
+        pool.connect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 12000))
+      ]);
       console.log('✅ Database connected successfully');
       
       // Create all necessary tables
@@ -1120,10 +1131,10 @@ async function startServer() {
     console.log('🔧 Starting server...');
     const PORT = process.env.PORT || 4000;
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 CarMarket server running on port ${PORT}`);
-      console.log(`🌐 Health check available at: http://localhost:${PORT}/health`);
-      console.log(`📋 API endpoints available at: http://localhost:${PORT}/api`);
+      console.log(`🌐 Health check available at: http://0.0.0.0:${PORT}/health`);
+      console.log(`📋 API endpoints available at: http://0.0.0.0:${PORT}/api`);
       console.log('✅ Application HTTP server started. Initializing database in background...');
     });
 
