@@ -885,6 +885,57 @@ app.post('/api/listings/:id/images', authenticateToken, uploadMultiple, handleUp
   }
 });
 
+// Compatibility route for older frontend path
+app.post('/api/users/me/listings/:id/images', authenticateToken, uploadMultiple, handleUploadError, async (req, res) => {
+  // Delegate to the same handler logic by calling the primary route
+  req.params.id = req.params.id; // no-op for clarity
+  console.log(`📸 (compat) Upload images via legacy path for listing ID: ${req.params.id}`);
+  // Re-run the same logic by copying the handler body would duplicate code; instead, call the main handler functionally
+  // For simplicity, forward handling here by repeating minimal checks
+  try {
+    const ownershipCheck = await pool.query(
+      'SELECT id FROM listings WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Listing not found or access denied' });
+    }
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No images provided' });
+    }
+    const uploadedImages = [];
+    const errors = [];
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      try {
+        const cloudinaryResult = await uploadToCloudinary(file, `car-marketplace/listings/${req.params.id}`);
+        if (cloudinaryResult.success) {
+          const isPrimary = i === 0;
+          const result = await pool.query(
+            'INSERT INTO listing_images (listing_id, image_url, cloudinary_public_id, is_primary, image_order) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [req.params.id, cloudinaryResult.url, cloudinaryResult.public_id, isPrimary, i]
+          );
+          uploadedImages.push(result.rows[0]);
+        } else {
+          errors.push(`Failed to upload ${file.originalname}: ${cloudinaryResult.error}`);
+        }
+      } catch (error) {
+        errors.push(`Failed to upload ${file.originalname}: ${error.message}`);
+      }
+    }
+    cleanupTempFiles(req.files);
+    if (uploadedImages.length === 0) {
+      return res.status(400).json({ message: 'No images were uploaded successfully', errors });
+    }
+    console.log(`✅ (compat) ${uploadedImages.length} images uploaded for listing ${req.params.id}`);
+    res.json({ success: true, message: `${uploadedImages.length} images uploaded successfully`, images: uploadedImages, errors: errors.length > 0 ? errors : undefined });
+  } catch (error) {
+    console.error('Image upload error (compat):', error);
+    cleanupTempFiles(req.files);
+    res.status(500).json({ message: 'Failed to upload images' });
+  }
+});
+
 // Delete an image
 app.delete('/api/listings/:listingId/images/:imageId', authenticateToken, async (req, res) => {
   console.log(`🗑️ Delete image endpoint requested for image ID: ${req.params.imageId}`);
@@ -1019,9 +1070,9 @@ app.post('/api/support', async (req, res) => {
       });
     } else {
       console.warn('⚠️ Support message saved but Telegram failed:', telegramResult.error);
-      res.json({
-        success: true,
-        message: 'Your message has been received! We will get back to you soon.'
+      res.status(502).json({
+        success: false,
+        error: 'Failed to deliver message to Telegram. Please try again later.'
       });
     }
   } catch (error) {

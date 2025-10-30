@@ -84,8 +84,8 @@ export const useListings = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
         },
-        credentials: 'include',
         body: JSON.stringify(data)
       });
 
@@ -115,9 +115,12 @@ export const useListings = () => {
         formData.append('images', file);
       });
 
-      const response = await fetch(`${API_BASE_URL}/users/me/listings/${listingId}/images`, {
+      // Backend supports /api/listings/:id/images; keep old path compatibility
+      const response = await fetch(`${API_BASE_URL}/listings/${listingId}/images`, {
         method: 'POST',
-        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
         body: formData
       });
 

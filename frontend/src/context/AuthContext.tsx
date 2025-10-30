@@ -30,8 +30,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const checkAuthStatus = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/me`, {
-        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
@@ -55,7 +64,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -64,6 +72,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.ok) {
         setUser(data.user);
         localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message };
@@ -81,7 +92,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ username, email, password }),
       });
 
@@ -90,6 +100,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.ok) {
         setUser(data.user);
         localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message };
@@ -102,14 +115,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async (): Promise<void> => {
     try {
-      await fetch(`${API_BASE_URL}/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // No server call needed for JWT logout; just clear local state
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       // Clear saved credentials on logout
       localStorage.removeItem('rememberedEmail');
       localStorage.removeItem('rememberedPassword');
