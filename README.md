@@ -74,11 +74,10 @@ After a cold start, the first response may take 30–60 seconds. If listings don
 
 ### **Infrastructure & DevOps**
 - **Cloudinary** - Image storage and optimization
-- **In-Memory Cache** - Fallback caching system
-- **Docker** - Containerization
-- **Railway** - Backend & PostgreSQL hosting
+- **Redis** - Distributed caching on Railway
+- **Railway** - Backend, PostgreSQL & Redis hosting
 - **Vercel** - Frontend hosting
-- **Winston** - Application logging
+- **Winston** - Structured application logging
 
 ### **Security Features**
 - **Helmet.js** - Security headers
@@ -258,12 +257,12 @@ npm start
 6. **Access the application**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:4000
-- API Documentation: http://localhost:4000/api-docs
+- Health Check: http://localhost:4000/health
 
 ## 📊 Performance Metrics
 
 - **Page Load Time**: < 2 seconds
-- **API Response Time**: < 200ms (cached with Redis), < 500ms (uncached)
+- **API Response Time**: < 200ms (cached with Redis), < 550ms (uncached)
 - **Database Query Time**: < 50ms (optimized with indexes)
 - **Image Upload**: < 3 seconds for 10 images
 - **Cache Hit Rate**: 80%+ for frequently accessed data (Redis + in-memory fallback)
@@ -296,21 +295,20 @@ After implementing Redis caching, performance improved significantly:
 
 ## 🎯 Key Achievements
 
-- **Full-Stack Development**: Complete end-to-end application with modern architecture
-- **Type Safety**: 100% TypeScript coverage for maintainable code
-- **Security**: Enterprise-level security implementation
-- **Performance**: 60-80% improvement with in-memory caching implementation
-- **Scalability**: Ready for production with proper monitoring and logging
-- **User Experience**: Responsive design with intuitive interface
-- **Code Quality**: Clean architecture with separation of concerns
+- **Full-Stack Development**: Complete end-to-end application with React, TypeScript, Node.js, and PostgreSQL
+- **Type Safety**: Frontend built with 100% TypeScript for type-safe development
+- **Performance Optimization**: 65% improvement in response times with Redis caching (250ms average vs 1539ms+ timeouts)
+- **Scalable Architecture**: Production-ready with Redis caching, connection pooling, and stateless design
+- **Security**: Enterprise-level implementation with JWT authentication, Helmet.js, rate limiting, and input validation
+- **Modern UX**: Responsive design with real-time search, advanced filtering, and intuitive interface
+- **Cloud Integration**: Successfully deployed on Railway (backend) and Vercel (frontend) with Redis and PostgreSQL
 
 ## 🔧 API Documentation
 
 ### Authentication Endpoints
 - `POST /api/register` - User registration
 - `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/me` - Get current user
+- `GET /api/me` - Get current user (requires authentication)
 
 ### Listings Endpoints
 - `GET /api/listings` - Get all listings with pagination
@@ -320,40 +318,35 @@ After implementing Redis caching, performance improved significantly:
 - `DELETE /api/users/me/listings/:id` - Delete listing
 
 ### Image Endpoints
-- `POST /api/users/me/listings/:id/images` - Upload images
-- `GET /api/listings/:id/images` - Get listing images
-- `PUT /api/users/me/listings/:id/images/:imageId/primary` - Set primary image
-- `DELETE /api/users/me/listings/:id/images/:imageId` - Delete image
+- `POST /api/listings/:id/images` - Upload images for a listing (requires authentication)
+- `DELETE /api/listings/:listingId/images/:imageId` - Delete an image (requires authentication)
+- `PUT /api/listings/:listingId/images/:imageId/primary` - Set primary image (requires authentication)
+
+### Support Endpoint
+- `POST /api/support` - Send support message (integrated with Telegram bot)
 
 ## 🧪 Testing
 
 ```bash
-# Run frontend tests
+# Run frontend tests (React Testing Library)
 cd frontend
 npm test
 
-# Run backend tests
+# Test API response times
 cd backend
-npm test
+BACKEND_URL=https://carmarket-production.up.railway.app node scripts/test-response-times.js
 
-# Run integration tests
-npm run test:integration
+# Test Railway deployment
+cd backend
+RAILWAY_URL=https://your-app.railway.app node scripts/test-railway-deployment.js
 ```
 
 ## 📈 Monitoring & Logs
 
-- **Health Check**: `GET /health` - System status
-- **Logs**: Structured JSON logging with Winston
-- **Metrics**: Response times, cache hit rates, error rates
-- **Alerts**: Automatic notifications for critical errors
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- **Health Check**: `GET /health` - System status with database and Redis connection info
+- **Logs**: Structured logging with Winston for production monitoring
+- **Metrics**: Response times tracked per endpoint, cache hit rates, error rates
+- **Telegram Integration**: Automatic notifications for support messages and critical errors
 
 ## 📄 License
 
@@ -375,12 +368,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 💼 Portfolio Project
 
 This project demonstrates expertise in:
-- **Modern Full-Stack Development** with React, Node.js, and PostgreSQL
-- **Enterprise Architecture** with microservices and caching
-- **Security Implementation** with JWT, rate limiting, and input validation
-- **Performance Optimization** with in-memory caching and database optimization
-- **DevOps Practices** with Docker, CI/CD, and cloud deployment
-- **Code Quality** with TypeScript, testing, and documentation
+- **Modern Full-Stack Development** with React 18, TypeScript, Node.js, Express, and PostgreSQL
+- **Performance Optimization** with Redis caching (65% improvement), connection pooling, and query optimization
+- **Cloud Deployment** on Railway (backend, database, cache) and Vercel (frontend)
+- **Security Implementation** with JWT authentication, Helmet.js, rate limiting, and input validation
+- **Scalable Architecture** with stateless design, caching layers, and health monitoring
+- **Code Quality** with TypeScript, clean architecture, separation of concerns, and comprehensive documentation
 
 ## 🙏 Acknowledgments
 
