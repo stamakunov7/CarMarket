@@ -17,7 +17,7 @@ CREATE DATABASE cardb OWNER caruser;
 
 Ran migrations:
 ```bash
-psql -U caruser -d cardb -f setup-db.sql
+psql -U caruser -d cardb -f backend/database/setup-db.sql
 ```
 
 ### 3. Environment Variables

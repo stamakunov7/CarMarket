@@ -30,8 +30,8 @@ CLOUDINARY_API_SECRET=my_secret
 ### 4. Set Up Database
 Ran scripts to create tables:
 ```bash
-psql -U caruser -d cardb -f setup-db.sql
-psql -U caruser -d cardb -f setup-listings.sql
+psql -U caruser -d cardb -f backend/database/setup-db.sql
+psql -U caruser -d cardb -f backend/database/setup-listings.sql
 ```
 
 ### 5. Tested It

@@ -86,7 +86,7 @@ railway run psql < backup.sql
 #### Вариант B: Через Railway Dashboard
 1. Откройте PostgreSQL сервис в Railway
 2. Нажмите **"Connect"** → **"Query"**
-3. Выполните SQL скрипты из `setup-db.sql`
+3. Выполните SQL скрипты из `backend/database/setup-db.sql`
 
 ### 5. Тестирование (5 минут)
 
@@ -96,7 +96,7 @@ railway run psql < backup.sql
 export RAILWAY_URL=https://your-app.railway.app
 
 # Запустите тесты
-node test-railway-deployment.js
+node backend/scripts/test-railway-deployment.js
 ```
 
 #### Ручное тестирование:

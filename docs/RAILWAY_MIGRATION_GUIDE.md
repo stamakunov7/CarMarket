@@ -84,9 +84,9 @@ LOG_LEVEL=info
 psql $DATABASE_URL
 
 # Импорт схемы и данных
-\i setup-db.sql
-\i setup-listings.sql
-\i setup-images.sql
+\i backend/database/setup-db.sql
+\i backend/database/setup-listings.sql
+\i backend/database/setup-images.sql
 ```
 
 #### Альтернативно через Railway CLI:

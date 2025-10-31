@@ -44,7 +44,8 @@ After a cold start, the first response may take 30–60 seconds. If listings don
 - Automatic cleanup of unused images
 
 ### ⚡ **Performance & Caching**
-- In-memory caching with 5-minute TTL (Redis disabled on free tier)
+- **Redis caching** with automatic reconnection and heartbeat mechanism
+- In-memory fallback cache with 5-minute TTL
 - Connection pooling for PostgreSQL
 - Gzip compression for API responses
 - Optimized database queries with proper indexing
@@ -93,18 +94,22 @@ After a cold start, the first response may take 30–60 seconds. If listings don
 - **Frontend**: Vercel (Production)
 - **Backend**: Railway (Serverless – wakes on first request)
 - **Database**: PostgreSQL on Railway
+- **Cache**: Redis on Railway with automatic reconnection & heartbeat
 - **Images**: Cloudinary CDN
-- **Caching**: In‑memory fallback cache (Redis optional)
+- **Caching**: Redis + In-memory fallback cache
 
 ### **Deployment Notes**
-> ⚠️ **Cold Start (Railway)**: the first request after inactivity can take 30–60 seconds, then everything is fast. If you see an empty list, click “Fetch listings again”.
+> ⚠️ **Cold Start (Railway)**: the first request after inactivity can take 30–60 seconds, then everything is fast. If you see an empty list, click "Fetch listings again".
+> 
+> ✅ **Redis Caching**: Active with automatic heartbeat to prevent service sleeping. Cached requests respond in < 200ms.
 
 ### **Production Readiness**
 ✅ **Security**: Enterprise-level security with Helmet.js, rate limiting, and input validation  
-✅ **Performance**: In-memory caching, optimized queries, and connection pooling  
+✅ **Performance**: Redis caching with heartbeat, optimized queries, and connection pooling  
 ✅ **Monitoring**: Health checks, structured logging, and error tracking  
 ✅ **Scalability**: Stateless architecture ready for horizontal scaling  
-✅ **Documentation**: Comprehensive API documentation and setup guides
+✅ **Documentation**: Comprehensive API documentation and setup guides  
+✅ **Reliability**: Automatic Redis reconnection with retry logic and fallback cache
 
 ### **Environment Variables**
 ```bash
@@ -175,11 +180,26 @@ sulik/
 │   ├── public/             # Static assets
 │   └── package.json
 ├── backend/                 # Node.js Express backend
-│   ├── config/             # Configuration files
-│   ├── middleware/         # Custom middleware
-│   ├── logs/               # Application logs
-│   └── index.js            # Main server file
+│   ├── config/             # Configuration files (Cloudinary, etc.)
+│   ├── middleware/         # Custom middleware (upload, etc.)
+│   ├── database/           # Database migrations and setup scripts
+│   ├── scripts/            # Utility scripts (tests, migrations, etc.)
+│   ├── logs/               # Application logs (gitignored)
+│   ├── uploads/             # Uploaded files (gitignored)
+│   ├── index.js            # Main server file
+│   └── package.json
 ├── docs/                   # Documentation
+│   ├── API_DOCUMENTATION.md
+│   ├── AUTH_SETUP.md
+│   ├── CLOUDINARY_SETUP.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   ├── RAILWAY_MIGRATION_GUIDE.md
+│   ├── RAILWAY_REDIS_SETUP.md
+│   ├── TELEGRAM_SETUP.md
+│   └── SECURITY_SETUP.md
+├── screenshots/             # Application screenshots
+├── railway.json            # Railway deployment config
+├── railway.toml            # Railway configuration
 └── README.md
 ```
 
@@ -221,7 +241,7 @@ cp backend/env.example backend/.env
 ```bash
 # Create database and run migrations
 psql -U postgres -c "CREATE DATABASE sulik_db;"
-psql -U postgres -d sulik_db -f backend/setup-db.sql
+psql -U postgres -d sulik_db -f backend/database/setup-db.sql
 ```
 
 5. **Start the application**
@@ -243,10 +263,36 @@ npm start
 ## 📊 Performance Metrics
 
 - **Page Load Time**: < 2 seconds
-- **API Response Time**: < 100ms (cached), < 500ms (uncached)
+- **API Response Time**: < 200ms (cached with Redis), < 500ms (uncached)
 - **Database Query Time**: < 50ms (optimized with indexes)
 - **Image Upload**: < 3 seconds for 10 images
-- **Cache Hit Rate**: 80%+ for frequently accessed data (in-memory cache)
+- **Cache Hit Rate**: 80%+ for frequently accessed data (Redis + in-memory fallback)
+
+### 🚀 Redis Performance Improvements
+
+After implementing Redis caching, performance improved significantly:
+
+**Before Redis Implementation:**
+- ❌ Health Check: **1539ms** (timeouts)
+- ❌ Listings API: **Timeout (30s+)** - requests were failing
+- ❌ Filter Options: **Timeout** - data wasn't loading
+- ❌ Caching: **Not working**
+
+**After Redis Implementation:**
+- ✅ Health Check: **534ms** (65% improvement)
+- ✅ Listings API: **191ms** (first request, cached) 📦, **193ms** (subsequent) 📦
+- ✅ Filter Options: **191ms** (first request, cached) 📦, **193ms** (subsequent) 📦
+- ✅ Caching: **Working** (5/6 requests cached)
+- ✅ Average response time: **250ms** (instead of timeouts)
+
+![Performance Before Redis](./screenshots/redis-before.png)
+*Test results before Redis implementation - all requests were timing out*
+
+![Performance After Redis](./screenshots/redis-after.png)
+*Test results after Redis implementation - caching works, requests succeed*
+
+![Railway Architecture](./screenshots/railway-architecture.png)
+*Architecture on Railway: Postgres, Redis, and CarMarket services are connected*
 
 ## 🎯 Key Achievements
 
