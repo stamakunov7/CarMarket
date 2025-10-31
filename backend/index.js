@@ -61,36 +61,246 @@ app.use('/api/login', authLimiter);
 
 // Simple caching system (Redis with in-memory fallback)
 let redisClient = null;
+let redisConnected = false;
 const inMemoryCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let redisHeartbeatInterval = null;
 
-// Initialize Redis if available
-(async () => {
+// Helper function to get Redis URL from various Railway environment variables
+function getRedisUrl() {
+  // Priority 1: REDIS_URL (Railway automatically provides this when services are linked)
   if (process.env.REDIS_URL) {
-    try {
-      const { createClient } = require('redis');
-      redisClient = createClient({ url: process.env.REDIS_URL });
-      redisClient.on('error', (err) => console.warn('Redis Client Error:', err.message));
-      await redisClient.connect();
-      console.log('✅ Redis connected for caching');
-    } catch (error) {
-      console.warn('⚠️ Redis not available, using in-memory cache:', error.message);
-      redisClient = null;
+    return process.env.REDIS_URL;
+  }
+  
+  // Priority 2: REDIS_PUBLIC_URL (for cross-service connections via TCP proxy)
+  if (process.env.REDIS_PUBLIC_URL) {
+    return process.env.REDIS_PUBLIC_URL;
+  }
+  
+  // Priority 3: Build URL from individual components (Railway provides these)
+  if (process.env.REDISHOST && process.env.REDISPORT) {
+    const user = process.env.REDISUSER || 'default';
+    const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || '';
+    const host = process.env.REDISHOST;
+    const port = process.env.REDISPORT || '6379';
+    
+    if (password) {
+      return `redis://${user}:${password}@${host}:${port}`;
+    } else {
+      return `redis://${user}@${host}:${port}`;
     }
   }
-})();
+  
+  return null;
+}
+
+// Initialize Redis connection with retry logic (similar to database)
+async function initializeRedis() {
+  const redisUrl = getRedisUrl();
+  
+  if (!redisUrl) {
+    console.log('ℹ️  Redis not configured, using in-memory cache only');
+    console.log('💡 Railway will provide REDIS_URL automatically when Redis service is linked');
+    return false;
+  }
+
+  console.log('🔗 Redis URL detected (host hidden for security)');
+  
+  const maxRetries = 10; // Railway Redis can be slow to wake
+  const retryDelay = 5000; // 5 seconds
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 Redis connection attempt ${attempt}/${maxRetries}...`);
+      
+      const { createClient } = require('redis');
+      
+      // Close previous connection if exists
+      if (redisClient) {
+        try {
+          await redisClient.quit();
+        } catch (e) {
+          // Ignore errors when closing
+        }
+      }
+
+      redisClient = createClient({ 
+        url: redisUrl,
+        socket: {
+          connectTimeout: 10000,
+          reconnectStrategy: (retries) => {
+            if (retries > 20) {
+              console.warn('⚠️ Redis: Max reconnection attempts reached');
+              return new Error('Max reconnection attempts reached');
+            }
+            return Math.min(retries * 100, 3000);
+          }
+        }
+      });
+
+      redisClient.on('error', (err) => {
+        console.warn('⚠️ Redis Client Error:', err.message);
+        redisConnected = false;
+      });
+      
+      redisClient.on('connect', () => {
+        console.log('🔄 Redis connecting...');
+      });
+      
+      redisClient.on('ready', () => {
+        console.log('✅ Redis ready');
+        redisConnected = true;
+      });
+      
+      redisClient.on('end', () => {
+        console.warn('⚠️ Redis connection ended');
+        redisConnected = false;
+      });
+      
+      redisClient.on('reconnecting', () => {
+        console.log('🔄 Redis reconnecting...');
+      });
+
+      // Connect with timeout
+      await Promise.race([
+        redisClient.connect(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 10000))
+      ]);
+
+      // Test connection with ping
+      await Promise.race([
+        redisClient.ping(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 5000))
+      ]);
+
+      console.log('✅ Redis connected for caching');
+      redisConnected = true;
+
+      // Start heartbeat to keep Redis awake (ping every 30 seconds)
+      startRedisHeartbeat();
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Redis connection attempt ${attempt} failed:`, error.message);
+      redisConnected = false;
+      
+      if (attempt === maxRetries) {
+        console.warn('⚠️ Redis not available after retries, using in-memory cache only');
+        console.warn('💡 Redis may be sleeping on Railway. It will wake up on first connection.');
+        redisClient = null;
+        return false;
+      }
+      
+      console.log(`⏳ Waiting ${retryDelay/1000} seconds before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
+  
+  return false;
+}
+
+// Heartbeat to keep Redis awake on Railway
+function startRedisHeartbeat() {
+  if (redisHeartbeatInterval) {
+    clearInterval(redisHeartbeatInterval);
+  }
+  
+  redisHeartbeatInterval = setInterval(async () => {
+    if (redisClient && redisConnected) {
+      try {
+        await Promise.race([
+          redisClient.ping(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Heartbeat timeout')), 3000))
+        ]);
+      } catch (error) {
+        console.warn('⚠️ Redis heartbeat failed:', error.message);
+        redisConnected = false;
+      }
+    }
+  }, 30000); // Ping every 30 seconds to keep Railway Redis awake
+}
+
+// Initialize Redis in background
+initializeRedis().then((connected) => {
+  if (connected) {
+    console.log('✅ Redis initialization complete');
+  } else {
+    console.log('ℹ️  Redis initialization skipped, using in-memory cache');
+  }
+}).catch((e) => {
+  console.error('❌ Unexpected Redis init error:', e);
+});
+
+// Helper function to try reconnecting Redis if needed (lightweight reconnect)
+async function ensureRedisConnection() {
+  const redisUrl = getRedisUrl();
+  if (!redisUrl) return false;
+  
+  // If we have a client but it's not connected, try to reconnect
+  if (redisClient && !redisConnected) {
+    try {
+      // Check if client is still valid, if not create new one
+      try {
+        await Promise.race([
+          redisClient.ping(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 2000))
+        ]);
+        redisConnected = true;
+        return true;
+      } catch (pingError) {
+        // Connection lost, try to reconnect the existing client
+        try {
+          await redisClient.connect();
+          await redisClient.ping();
+          redisConnected = true;
+          startRedisHeartbeat();
+          console.log('✅ Redis reconnected successfully');
+          return true;
+        } catch (reconnectError) {
+          // Reconnection failed, will use fallback
+          redisConnected = false;
+        }
+      }
+    } catch (e) {
+      redisConnected = false;
+    }
+  }
+  
+  // If no client exists but Redis URL is configured, try full initialization (but only once)
+  if (!redisClient && redisUrl) {
+    try {
+      console.log('🔄 Attempting to connect to Redis...');
+      await initializeRedis();
+    } catch (e) {
+      // Silently fail - will use fallback cache
+    }
+  }
+  
+  return redisConnected;
+}
 
 // Cache helper functions
 async function getCached(key) {
-  if (redisClient) {
+  // Try to reconnect if Redis is not connected but was configured
+  const redisUrl = getRedisUrl();
+  if (redisUrl && (!redisClient || !redisConnected)) {
+    await ensureRedisConnection();
+  }
+  
+  if (redisClient && redisConnected) {
     try {
-      const cached = await redisClient.get(key);
+      const cached = await Promise.race([
+        redisClient.get(key),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis get timeout')), 2000))
+      ]);
       if (cached) {
         console.log(`✅ Cache hit (Redis): ${key}`);
         return JSON.parse(cached);
       }
     } catch (error) {
       console.warn('Redis get error:', error.message);
+      redisConnected = false;
     }
   }
   
@@ -106,13 +316,23 @@ async function getCached(key) {
 }
 
 async function setCache(key, data, ttlSeconds = 300) {
-  if (redisClient) {
+  // Try to reconnect if Redis is not connected but was configured
+  const redisUrl = getRedisUrl();
+  if (redisUrl && (!redisClient || !redisConnected)) {
+    await ensureRedisConnection();
+  }
+  
+  if (redisClient && redisConnected) {
     try {
-      await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+      await Promise.race([
+        redisClient.setEx(key, ttlSeconds, JSON.stringify(data)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis set timeout')), 2000))
+      ]);
       console.log(`✅ Data cached (Redis): ${key}`);
       return;
     } catch (error) {
       console.warn('Redis set error:', error.message);
+      redisConnected = false;
     }
   }
   
@@ -126,15 +346,22 @@ async function setCache(key, data, ttlSeconds = 300) {
 
 async function clearCache(pattern) {
   // Clear all listing-related cache when data changes
-  if (redisClient) {
+  if (redisClient && redisConnected) {
     try {
-      const keys = await redisClient.keys(pattern);
+      const keys = await Promise.race([
+        redisClient.keys(pattern),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Redis keys timeout')), 2000))
+      ]);
       if (keys.length > 0) {
-        await redisClient.del(keys);
+        await Promise.race([
+          redisClient.del(keys),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Redis del timeout')), 2000))
+        ]);
         console.log(`✅ Cleared ${keys.length} cache entries (Redis): ${pattern}`);
       }
     } catch (error) {
       console.warn('Redis clear error:', error.message);
+      redisConnected = false;
     }
   }
   
@@ -399,12 +626,41 @@ app.get('/health', async (req, res) => {
       }
     }
 
+    let redisStatus = { status: 'not_configured' };
+    const redisUrl = getRedisUrl();
+    
+    if (redisUrl) {
+      if (redisClient) {
+        try {
+          if (redisConnected) {
+            const redisStart = Date.now();
+            await Promise.race([
+              redisClient.ping(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 2000))
+            ]);
+            const redisDuration = Date.now() - redisStart;
+            redisStatus = { status: 'connected', responseTime: `${redisDuration}ms`, cacheType: 'Redis' };
+          } else {
+            redisStatus = { status: 'disconnected', cacheType: 'Redis (fallback to memory)' };
+          }
+        } catch (err) {
+          redisStatus = { status: 'disconnected', error: 'ping_failed', cacheType: 'Memory fallback' };
+          redisConnected = false;
+        }
+      } else {
+        redisStatus = { status: 'configured_but_not_connected', cacheType: 'Redis (connecting...)', note: 'Redis URL is configured but connection not established yet' };
+      }
+    } else {
+      redisStatus = { status: 'not_configured', cacheType: 'In-memory only' };
+    }
+
     res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       message: 'CarMarket API is running',
       uptime: process.uptime(),
-      database: dbStatus
+      database: dbStatus,
+      redis: redisStatus
     });
   } catch (error) {
     // Even in unexpected cases, keep health 200 for platform readiness
@@ -413,7 +669,8 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       message: 'CarMarket API is running',
       uptime: process.uptime(),
-      database: { status: 'unknown' }
+      database: { status: 'unknown' },
+      redis: { status: 'unknown' }
     });
   }
 });
@@ -1320,22 +1577,44 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
+  
+  // Stop Redis heartbeat
+  if (redisHeartbeatInterval) {
+    clearInterval(redisHeartbeatInterval);
+    redisHeartbeatInterval = null;
+  }
+  
   if (pool) {
     await pool.end();
   }
   if (redisClient) {
-    await redisClient.quit();
+    try {
+      await redisClient.quit();
+    } catch (e) {
+      console.warn('Error closing Redis connection:', e.message);
+    }
   }
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
+  
+  // Stop Redis heartbeat
+  if (redisHeartbeatInterval) {
+    clearInterval(redisHeartbeatInterval);
+    redisHeartbeatInterval = null;
+  }
+  
   if (pool) {
     await pool.end();
   }
   if (redisClient) {
-    await redisClient.quit();
+    try {
+      await redisClient.quit();
+    } catch (e) {
+      console.warn('Error closing Redis connection:', e.message);
+    }
   }
   process.exit(0);
 });
