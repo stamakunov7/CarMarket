@@ -59,6 +59,108 @@ app.use('/api', generalLimiter);
 app.use('/api/register', authLimiter);
 app.use('/api/login', authLimiter);
 
+// Simple caching system (Redis with in-memory fallback)
+let redisClient = null;
+const inMemoryCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Initialize Redis if available
+(async () => {
+  if (process.env.REDIS_URL) {
+    try {
+      const { createClient } = require('redis');
+      redisClient = createClient({ url: process.env.REDIS_URL });
+      redisClient.on('error', (err) => console.warn('Redis Client Error:', err.message));
+      await redisClient.connect();
+      console.log('✅ Redis connected for caching');
+    } catch (error) {
+      console.warn('⚠️ Redis not available, using in-memory cache:', error.message);
+      redisClient = null;
+    }
+  }
+})();
+
+// Cache helper functions
+async function getCached(key) {
+  if (redisClient) {
+    try {
+      const cached = await redisClient.get(key);
+      if (cached) {
+        console.log(`✅ Cache hit (Redis): ${key}`);
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.warn('Redis get error:', error.message);
+    }
+  }
+  
+  // Fallback to in-memory cache
+  const item = inMemoryCache.get(key);
+  if (item && Date.now() - item.timestamp < CACHE_TTL) {
+    console.log(`✅ Cache hit (Memory): ${key}`);
+    return item.data;
+  }
+  
+  if (item) inMemoryCache.delete(key);
+  return null;
+}
+
+async function setCache(key, data, ttlSeconds = 300) {
+  if (redisClient) {
+    try {
+      await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+      console.log(`✅ Data cached (Redis): ${key}`);
+      return;
+    } catch (error) {
+      console.warn('Redis set error:', error.message);
+    }
+  }
+  
+  // Fallback to in-memory cache
+  inMemoryCache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+  console.log(`✅ Data cached (Memory): ${key}`);
+}
+
+async function clearCache(pattern) {
+  // Clear all listing-related cache when data changes
+  if (redisClient) {
+    try {
+      const keys = await redisClient.keys(pattern);
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+        console.log(`✅ Cleared ${keys.length} cache entries (Redis): ${pattern}`);
+      }
+    } catch (error) {
+      console.warn('Redis clear error:', error.message);
+    }
+  }
+  
+  // Clear in-memory cache
+  for (const key of inMemoryCache.keys()) {
+    if (key.includes(pattern.replace('*', ''))) {
+      inMemoryCache.delete(key);
+    }
+  }
+}
+
+// Response time logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const logMessage = `${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`;
+    if (duration > 1000) {
+      console.warn(`⚠️ Slow request: ${logMessage}`);
+    } else if (duration > 100) {
+      console.log(`⏱️ ${logMessage}`);
+    }
+  });
+  next();
+});
+
 // Database connection
 const { Pool } = require('pg');
 let pool = null;
@@ -456,6 +558,18 @@ app.get('/api/listings', async (req, res) => {
     generation
   } = req.query;
 
+  // Create cache key based on query parameters
+  const cacheKey = `listings:${JSON.stringify(req.query)}`;
+  
+  // Try to get from cache first
+  const cachedData = await getCached(cacheKey);
+  if (cachedData) {
+    return res.json({
+      ...cachedData,
+      cached: true
+    });
+  }
+
   try {
     const offset = (page - 1) * limit;
     let whereConditions = ['l.status = $1'];
@@ -594,7 +708,7 @@ app.get('/api/listings', async (req, res) => {
 
     const result = await pool.query(listingsQuery, queryParams);
 
-    res.json({
+    const responseData = {
       success: true,
       data: {
         listings: result.rows,
@@ -606,7 +720,14 @@ app.get('/api/listings', async (req, res) => {
         }
       },
       message: result.rows.length === 0 ? 'No listings found' : 'Listings retrieved successfully'
-    });
+    };
+
+    // Cache the response (cache for 5 minutes, but don't cache search results)
+    if (!search) {
+      await setCache(cacheKey, responseData, 300);
+    }
+
+    res.json(responseData);
   } catch (error) {
     console.error('Listings error:', error);
     res.status(500).json({ message: 'Failed to fetch listings' });
@@ -615,6 +736,16 @@ app.get('/api/listings', async (req, res) => {
 
 app.get('/api/listings/:id', async (req, res) => {
   console.log(`📋 Single listing endpoint requested for ID: ${req.params.id}`);
+  
+  // Try cache first
+  const cacheKey = `listing:${req.params.id}`;
+  const cachedData = await getCached(cacheKey);
+  if (cachedData) {
+    return res.json({
+      ...cachedData,
+      cached: true
+    });
+  }
   
   try {
     const result = await pool.query(
@@ -640,10 +771,15 @@ app.get('/api/listings/:id', async (req, res) => {
       });
     }
 
-    res.json({
+    const responseData = {
       success: true,
       data: { listing: result.rows[0] }
-    });
+    };
+
+    // Cache the response for 5 minutes
+    await setCache(cacheKey, responseData, 300);
+
+    res.json(responseData);
   } catch (error) {
     console.error('Single listing error:', error);
     res.status(500).json({ message: 'Failed to fetch listing' });
@@ -652,6 +788,16 @@ app.get('/api/listings/:id', async (req, res) => {
 
 app.get('/api/listings/filters/options', async (req, res) => {
   console.log('🔍 Filter options endpoint requested');
+  
+  // Cache filter options for 10 minutes (they change rarely)
+  const cacheKey = 'filter:options';
+  const cachedData = await getCached(cacheKey);
+  if (cachedData) {
+    return res.json({
+      ...cachedData,
+      cached: true
+    });
+  }
   
   try {
     const [
@@ -679,7 +825,7 @@ app.get('/api/listings/filters/options', async (req, res) => {
       pool.query('SELECT MIN(mileage) as min_mileage, MAX(mileage) as max_mileage FROM listings WHERE mileage > 0')
     ]);
 
-    res.json({
+    const responseData = {
       success: true,
       data: {
         makes: makes.rows.map(row => row.make),
@@ -701,7 +847,12 @@ app.get('/api/listings/filters/options', async (req, res) => {
         min_mileage: mileageRange.rows[0]?.min_mileage || 0,
         max_mileage: mileageRange.rows[0]?.max_mileage || 200000
       }
-    });
+    };
+
+    // Cache filter options for 10 minutes
+    await setCache(cacheKey, responseData, 600);
+
+    res.json(responseData);
   } catch (error) {
     console.error('Filter options error:', error);
     res.status(500).json({ message: 'Failed to fetch filter options' });
@@ -774,6 +925,9 @@ app.post('/api/users/me/listings', authenticateToken, async (req, res) => {
       ]
     );
 
+    // Clear listings cache when new listing is created
+    await clearCache('listings:*');
+    
     console.log(`✅ Listing created: ${title} by ${req.user.username}`);
     res.status(201).json({
       success: true,
@@ -818,6 +972,10 @@ app.put('/api/users/me/listings/:id', authenticateToken, async (req, res) => {
       [title, description, price, make, model, year, mileage, status, req.params.id, req.user.id]
     );
 
+    // Clear cache for this listing and listings list
+    await clearCache('listings:*');
+    await clearCache(`listing:${req.params.id}`);
+    
     console.log(`✅ Listing updated: ${req.params.id} by ${req.user.username}`);
     res.json({
       success: true,
@@ -843,6 +1001,10 @@ app.delete('/api/users/me/listings/:id', authenticateToken, async (req, res) => 
       return res.status(404).json({ message: 'Listing not found or access denied' });
     }
 
+    // Clear cache
+    await clearCache('listings:*');
+    await clearCache(`listing:${req.params.id}`);
+    
     console.log(`✅ Listing deleted: ${result.rows[0].title} by ${req.user.username}`);
     res.json({
       success: true,
@@ -1156,18 +1318,24 @@ async function startServer() {
 }
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
   if (pool) {
-    pool.end();
+    await pool.end();
+  }
+  if (redisClient) {
+    await redisClient.quit();
   }
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
   if (pool) {
-    pool.end();
+    await pool.end();
+  }
+  if (redisClient) {
+    await redisClient.quit();
   }
   process.exit(0);
 });
