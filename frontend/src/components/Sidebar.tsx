@@ -173,27 +173,39 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     filterType 
   }: { 
     title: string; 
-    options: string[]; 
+    options: string[] | undefined; 
     selectedValues: string[]; 
     filterType: string; 
-  }) => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
-      <div className="max-h-32 overflow-y-auto space-y-2">
-        {options.map((option) => (
-          <label key={option} className="flex items-center">
-            <input
-              type="checkbox"
-              checked={selectedValues.includes(option)}
-              onChange={() => handleMultiSelect(filterType, option)}
-              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
-            />
-            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{option}</span>
-          </label>
-        ))}
+  }) => {
+    // Safety check - if options is undefined or null, return empty div
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      return (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
+          <div className="text-xs text-gray-500 dark:text-gray-400">No options available</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
+        <div className="max-h-32 overflow-y-auto space-y-2">
+          {options.map((option) => (
+            <label key={option} className="flex items-center">
+              <input
+                type="checkbox"
+                checked={selectedValues.includes(option)}
+                onChange={() => handleMultiSelect(filterType, option)}
+                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{option}</span>
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const RangeFilter = ({ 
     title, 
@@ -347,35 +359,35 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Technical Specs" section="technical">
           <MultiSelectFilter
             title="Engine Size"
-            options={filterOptions.engine_sizes}
+            options={filterOptions?.engine_sizes}
             selectedValues={filters.engineSize}
             filterType="engineSize"
           />
 
           <MultiSelectFilter
             title="Transmission"
-            options={filterOptions.transmission_types}
+            options={filterOptions?.transmission_types}
             selectedValues={filters.transmission}
             filterType="transmission"
           />
 
           <MultiSelectFilter
             title="Drivetrain"
-            options={filterOptions.drivetrain_types}
+            options={filterOptions?.drivetrain_types}
             selectedValues={filters.drivetrain}
             filterType="drivetrain"
           />
 
           <MultiSelectFilter
             title="Fuel Type"
-            options={filterOptions.fuel_types}
+            options={filterOptions?.fuel_types}
             selectedValues={filters.fuelType}
             filterType="fuelType"
           />
 
           <MultiSelectFilter
             title="Body Type"
-            options={filterOptions.body_types}
+            options={filterOptions?.body_types}
             selectedValues={filters.bodyType}
             filterType="bodyType"
           />
@@ -384,21 +396,21 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Condition & Status" section="condition">
           <MultiSelectFilter
             title="Condition"
-            options={filterOptions.conditions}
+            options={filterOptions?.conditions}
             selectedValues={filters.condition}
             filterType="condition"
           />
 
           <MultiSelectFilter
             title="Customs Status"
-            options={filterOptions.customs_status}
+            options={filterOptions?.customs_status}
             selectedValues={filters.customsStatus}
             filterType="customsStatus"
           />
 
           <MultiSelectFilter
             title="Steering Wheel"
-            options={filterOptions.steering_wheel_positions}
+            options={filterOptions?.steering_wheel_positions}
             selectedValues={filters.steeringWheel}
             filterType="steeringWheel"
           />
