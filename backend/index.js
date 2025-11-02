@@ -1058,51 +1058,67 @@ app.get('/api/listings/filters/options', async (req, res) => {
   
   try {
     const [
-      makes, models, bodyTypes, fuelTypes, transmissions, conditions, colors,
+      makes, modelsByMake, bodyTypes, fuelTypes, transmissions, conditions, colors,
       drivetrains, steeringWheels, customs, generations, engineVolumes
     ] = await Promise.all([
-      pool.query('SELECT DISTINCT make FROM listings WHERE make IS NOT NULL ORDER BY make'),
-      pool.query('SELECT DISTINCT model FROM listings WHERE model IS NOT NULL ORDER BY model'),
-      pool.query('SELECT DISTINCT body_type FROM listings WHERE body_type IS NOT NULL ORDER BY body_type'),
-      pool.query('SELECT DISTINCT fuel_type FROM listings WHERE fuel_type IS NOT NULL ORDER BY fuel_type'),
-      pool.query('SELECT DISTINCT transmission FROM listings WHERE transmission IS NOT NULL ORDER BY transmission'),
-      pool.query('SELECT DISTINCT condition FROM listings WHERE condition IS NOT NULL ORDER BY condition'),
-      pool.query('SELECT DISTINCT color FROM listings WHERE color IS NOT NULL ORDER BY color'),
-      pool.query('SELECT DISTINCT drivetrain FROM listings WHERE drivetrain IS NOT NULL ORDER BY drivetrain'),
-      pool.query('SELECT DISTINCT steering_wheel FROM listings WHERE steering_wheel IS NOT NULL ORDER BY steering_wheel'),
-      pool.query('SELECT DISTINCT customs FROM listings WHERE customs IS NOT NULL ORDER BY customs'),
-      pool.query('SELECT DISTINCT generation FROM listings WHERE generation IS NOT NULL ORDER BY generation'),
-      pool.query('SELECT DISTINCT engine_volume FROM listings WHERE engine_volume IS NOT NULL ORDER BY engine_volume')
+      pool.query('SELECT DISTINCT make FROM listings WHERE make IS NOT NULL AND status = $1 ORDER BY make', ['active']),
+      pool.query('SELECT DISTINCT make, model FROM listings WHERE make IS NOT NULL AND model IS NOT NULL AND status = $1 ORDER BY make, model', ['active']),
+      pool.query('SELECT DISTINCT body_type FROM listings WHERE body_type IS NOT NULL AND status = $1 ORDER BY body_type', ['active']),
+      pool.query('SELECT DISTINCT fuel_type FROM listings WHERE fuel_type IS NOT NULL AND status = $1 ORDER BY fuel_type', ['active']),
+      pool.query('SELECT DISTINCT transmission FROM listings WHERE transmission IS NOT NULL AND status = $1 ORDER BY transmission', ['active']),
+      pool.query('SELECT DISTINCT condition FROM listings WHERE condition IS NOT NULL AND status = $1 ORDER BY condition', ['active']),
+      pool.query('SELECT DISTINCT color FROM listings WHERE color IS NOT NULL AND status = $1 ORDER BY color', ['active']),
+      pool.query('SELECT DISTINCT drivetrain FROM listings WHERE drivetrain IS NOT NULL AND status = $1 ORDER BY drivetrain', ['active']),
+      pool.query('SELECT DISTINCT steering_wheel FROM listings WHERE steering_wheel IS NOT NULL AND status = $1 ORDER BY steering_wheel', ['active']),
+      pool.query('SELECT DISTINCT customs FROM listings WHERE customs IS NOT NULL AND status = $1 ORDER BY customs', ['active']),
+      pool.query('SELECT DISTINCT generation FROM listings WHERE generation IS NOT NULL AND status = $1 ORDER BY generation', ['active']),
+      pool.query('SELECT DISTINCT engine_volume FROM listings WHERE engine_volume IS NOT NULL AND status = $1 ORDER BY engine_volume', ['active'])
     ]);
 
-    // Get min/max values for ranges
+    // Group models by make
+    const models = {};
+    modelsByMake.rows.forEach(row => {
+      if (!models[row.make]) {
+        models[row.make] = [];
+      }
+      if (!models[row.make].includes(row.model)) {
+        models[row.make].push(row.model);
+      }
+    });
+    
+    // Sort models within each make
+    Object.keys(models).forEach(make => {
+      models[make].sort();
+    });
+
+    // Get min/max values for ranges (only active listings)
     const [priceRange, yearRange, mileageRange] = await Promise.all([
-      pool.query('SELECT MIN(price) as min_price, MAX(price) as max_price FROM listings WHERE price > 0'),
-      pool.query('SELECT MIN(year) as min_year, MAX(year) as max_year FROM listings WHERE year > 0'),
-      pool.query('SELECT MIN(mileage) as min_mileage, MAX(mileage) as max_mileage FROM listings WHERE mileage > 0')
+      pool.query('SELECT MIN(price) as min_price, MAX(price) as max_price FROM listings WHERE price > 0 AND status = $1', ['active']),
+      pool.query('SELECT MIN(year) as min_year, MAX(year) as max_year FROM listings WHERE year > 0 AND status = $1', ['active']),
+      pool.query('SELECT MIN(mileage) as min_mileage, MAX(mileage) as max_mileage FROM listings WHERE mileage > 0 AND status = $1', ['active'])
     ]);
 
     const responseData = {
       success: true,
       data: {
         makes: makes.rows.map(row => row.make),
-        models: models.rows.map(row => row.model),
-        bodyTypes: bodyTypes.rows.map(row => row.body_type),
-        fuelTypes: fuelTypes.rows.map(row => row.fuel_type),
-        transmissions: transmissions.rows.map(row => row.transmission),
+        models: models, // Now grouped by make
+        body_types: bodyTypes.rows.map(row => row.body_type),
+        fuel_types: fuelTypes.rows.map(row => row.fuel_type),
+        transmission_types: transmissions.rows.map(row => row.transmission),
         conditions: conditions.rows.map(row => row.condition),
         colors: colors.rows.map(row => row.color),
-        drivetrains: drivetrains.rows.map(row => row.drivetrain),
-        steeringWheels: steeringWheels.rows.map(row => row.steering_wheel),
-        customs: customs.rows.map(row => row.customs),
+        drivetrain_types: drivetrains.rows.map(row => row.drivetrain),
+        steering_wheel_positions: steeringWheels.rows.map(row => row.steering_wheel),
+        customs_status: customs.rows.map(row => row.customs),
         generations: generations.rows.map(row => row.generation),
-        engineSizes: engineVolumes.rows.map(row => row.engine_volume),
-        min_price: priceRange.rows[0]?.min_price || 0,
-        max_price: priceRange.rows[0]?.max_price || 100000,
-        min_year: yearRange.rows[0]?.min_year || 1990,
-        max_year: yearRange.rows[0]?.max_year || new Date().getFullYear(),
-        min_mileage: mileageRange.rows[0]?.min_mileage || 0,
-        max_mileage: mileageRange.rows[0]?.max_mileage || 200000
+        engine_sizes: engineVolumes.rows.map(row => parseFloat(row.engine_volume)).filter(v => !isNaN(v)).sort((a, b) => a - b),
+        min_price: parseFloat(priceRange.rows[0]?.min_price) || 0,
+        max_price: parseFloat(priceRange.rows[0]?.max_price) || 100000,
+        min_year: parseInt(yearRange.rows[0]?.min_year) || 1990,
+        max_year: parseInt(yearRange.rows[0]?.max_year) || new Date().getFullYear(),
+        min_mileage: parseInt(mileageRange.rows[0]?.min_mileage) || 0,
+        max_mileage: parseInt(mileageRange.rows[0]?.max_mileage) || 200000
       }
     };
 

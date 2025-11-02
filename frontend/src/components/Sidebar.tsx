@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { carData } from '../data/cars';
 
 interface FilterOptions {
   makes: string[];
   models: { [key: string]: string[] };
-  engine_sizes: string[];
+  engine_sizes: (number | string)[];
   transmission_types: string[];
   drivetrain_types: string[];
   fuel_types: string[];
@@ -11,6 +12,8 @@ interface FilterOptions {
   conditions: string[];
   customs_status: string[];
   steering_wheel_positions: string[];
+  generations: string[];
+  colors: string[];
   min_year: number;
   max_year: number;
   min_price: number;
@@ -54,21 +57,41 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
   const colorInputRef = useRef<HTMLInputElement>(null);
   const generationInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync generation input with filter
+  useEffect(() => {
+    if (filters.generation.length > 0) {
+      setGenerationInput(filters.generation[0]);
+    } else {
+      setGenerationInput('');
+    }
+  }, [filters.generation]);
+
+  // Sync color input with filter
+  useEffect(() => {
+    if (filters.color.length > 0) {
+      setColorInput(filters.color[0]);
+    } else {
+      setColorInput('');
+    }
+  }, [filters.color]);
+
   // Handle color input change
-  const handleColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleColorChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     console.log('Color input changed:', value);
     setColorInput(value);
-  }, []);
+    onFilterChange('color', value ? [value] : []);
+  }, [onFilterChange]);
 
   // Handle generation input change
-  const handleGenerationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGenerationChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     console.log('Generation input changed:', value);
     setGenerationInput(value);
-  }, []);
+    onFilterChange('generation', value ? [value] : []);
+  }, [onFilterChange]);
 
-  // Fetch filter options from API
+  // Fetch filter options from API and merge with static data
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
@@ -78,7 +101,32 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         const data = await response.json();
         console.log('Filter options data:', data);
         if (data.success) {
-          setFilterOptions(data.data);
+          // Merge static car data with API data
+          const staticMakes = Array.from(new Set(carData.map(car => car.make))).sort();
+          const staticModels: { [key: string]: string[] } = {};
+          carData.forEach(car => {
+            staticModels[car.make] = car.models.map(m => m.name);
+          });
+
+          // Combine static and API data for makes
+          const allMakes = Array.from(new Set([...staticMakes, ...(data.data.makes || [])])).sort();
+          
+          // Combine static and API data for models
+          const allModels: { [key: string]: string[] } = { ...staticModels };
+          if (data.data.models && typeof data.data.models === 'object') {
+            Object.keys(data.data.models).forEach(make => {
+              if (!allModels[make]) {
+                allModels[make] = [];
+              }
+              allModels[make] = Array.from(new Set([...allModels[make], ...data.data.models[make]])).sort();
+            });
+          }
+
+          setFilterOptions({
+            ...data.data,
+            makes: allMakes,
+            models: allModels
+          });
           console.log('Filter options set successfully');
         } else {
           console.error('API returned success: false', data);
@@ -128,11 +176,16 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
 
   const getActiveFiltersCount = () => {
     let count = 0;
-    if (filters.make.length > 0) count++;
-    if (filters.model.length > 0) count++;
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] > 0) count++;
-    if (filters.mileage[0] > 0 || filters.mileage[1] > 0) count++;
-    if (filters.year[0] > 0 || filters.year[1] > 0) count++;
+    // Only count non-empty filters
+    if (filters.make.length > 0 && filters.make[0] !== '') count++;
+    if (filters.model.length > 0 && filters.model[0] !== '') count++;
+    
+    // Range filters - count only if values are set and meaningful
+    if (filters.priceRange[0] > 0 || (filters.priceRange[1] > 0 && filters.priceRange[1] < 1000000)) count++;
+    if (filters.mileage[0] > 0 || (filters.mileage[1] > 0 && filters.mileage[1] < 200000)) count++;
+    if (filters.year[0] > 0 || (filters.year[1] > 0 && filters.year[1] < new Date().getFullYear() + 1)) count++;
+    
+    // Array filters - count only if not empty
     if (filters.engineSize.length > 0) count++;
     if (filters.transmission.length > 0) count++;
     if (filters.drivetrain.length > 0) count++;
@@ -141,8 +194,8 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     if (filters.condition.length > 0) count++;
     if (filters.customsStatus.length > 0) count++;
     if (filters.steeringWheel.length > 0) count++;
-    if (filters.color.length > 0) count++;
-    if (filters.generation.length > 0) count++;
+    if (filters.color.length > 0 && filters.color[0] !== '') count++;
+    if (filters.generation.length > 0 && filters.generation[0] !== '') count++;
     return count;
   };
 
@@ -359,35 +412,35 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Technical Specs" section="technical">
           <MultiSelectFilter
             title="Engine Size"
-            options={filterOptions?.engine_sizes}
+            options={filterOptions?.engine_sizes?.map(size => String(size)) || []}
             selectedValues={filters.engineSize}
             filterType="engineSize"
           />
 
           <MultiSelectFilter
             title="Transmission"
-            options={filterOptions?.transmission_types}
+            options={filterOptions?.transmission_types || []}
             selectedValues={filters.transmission}
             filterType="transmission"
           />
 
           <MultiSelectFilter
             title="Drivetrain"
-            options={filterOptions?.drivetrain_types}
+            options={filterOptions?.drivetrain_types || []}
             selectedValues={filters.drivetrain}
             filterType="drivetrain"
           />
 
           <MultiSelectFilter
             title="Fuel Type"
-            options={filterOptions?.fuel_types}
+            options={filterOptions?.fuel_types || []}
             selectedValues={filters.fuelType}
             filterType="fuelType"
           />
 
           <MultiSelectFilter
             title="Body Type"
-            options={filterOptions?.body_types}
+            options={filterOptions?.body_types || []}
             selectedValues={filters.bodyType}
             filterType="bodyType"
           />
@@ -396,21 +449,21 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Condition & Status" section="condition">
           <MultiSelectFilter
             title="Condition"
-            options={filterOptions?.conditions}
+            options={filterOptions?.conditions || []}
             selectedValues={filters.condition}
             filterType="condition"
           />
 
           <MultiSelectFilter
             title="Customs Status"
-            options={filterOptions?.customs_status}
+            options={filterOptions?.customs_status || []}
             selectedValues={filters.customsStatus}
             filterType="customsStatus"
           />
 
           <MultiSelectFilter
             title="Steering Wheel"
-            options={filterOptions?.steering_wheel_positions}
+            options={filterOptions?.steering_wheel_positions || []}
             selectedValues={filters.steeringWheel}
             filterType="steeringWheel"
           />
@@ -421,10 +474,7 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Color</label>
             <select
               value={colorInput}
-              onChange={(e) => {
-                console.log('Color selected:', e.target.value);
-                setColorInput(e.target.value);
-              }}
+              onChange={handleColorChange}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
             >
               <option value="">All colors</option>
@@ -452,10 +502,7 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Generation</label>
             <select
               value={generationInput}
-              onChange={(e) => {
-                console.log('Generation selected:', e.target.value);
-                setGenerationInput(e.target.value);
-              }}
+              onChange={handleGenerationChange}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
             >
               <option value="">All generations</option>
@@ -538,9 +585,17 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
 
         <button 
           onClick={() => {
-            // Apply current input values to filters before applying
-            onFilterChange('color', [colorInput]);
-            onFilterChange('generation', [generationInput]);
+            // Ensure current input values are applied to filters
+            if (colorInput) {
+              onFilterChange('color', [colorInput]);
+            } else {
+              onFilterChange('color', []);
+            }
+            if (generationInput) {
+              onFilterChange('generation', [generationInput]);
+            } else {
+              onFilterChange('generation', []);
+            }
             onApplyFilters();
           }}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 md:py-3 px-3 md:px-4 rounded-md transition-colors duration-200 font-medium text-xs md:text-sm"
