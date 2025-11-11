@@ -392,31 +392,58 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onClearFilte
     filterType: RangeFilterKey;
     min?: number | null;
     max?: number | null;
-  }) => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
-      <div className="flex gap-2">
-        <input
-          type="number"
-          placeholder={minPlaceholder}
-          value={minValue ?? ''}
-          min={min ?? undefined}
-          max={max ?? undefined}
-          onChange={event => handleRangeChange(filterType, 0, event.target.value)}
-          className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-        />
-        <input
-          type="number"
-          placeholder={maxPlaceholder}
-          value={maxValue ?? ''}
-          min={min ?? undefined}
-          max={max ?? undefined}
-          onChange={event => handleRangeChange(filterType, 1, event.target.value)}
-          className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-        />
+  }) => {
+    const [localMin, setLocalMin] = useState<string>(minValue?.toString() ?? '');
+    const [localMax, setLocalMax] = useState<string>(maxValue?.toString() ?? '');
+
+    useEffect(() => {
+      setLocalMin(minValue?.toString() ?? '');
+    }, [minValue]);
+
+    useEffect(() => {
+      setLocalMax(maxValue?.toString() ?? '');
+    }, [maxValue]);
+
+    const handleBlur = (index: 0 | 1) => (event: React.FocusEvent<HTMLInputElement>) => {
+      handleRangeChange(filterType, index, event.target.value);
+    };
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.currentTarget.blur();
+      }
+    };
+
+    return (
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder={minPlaceholder}
+            value={localMin}
+            min={min ?? undefined}
+            max={max ?? undefined}
+            onChange={event => setLocalMin(event.target.value)}
+            onBlur={handleBlur(0)}
+            onKeyDown={handleKeyDown}
+            className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+          />
+          <input
+            type="number"
+            placeholder={maxPlaceholder}
+            value={localMax}
+            min={min ?? undefined}
+            max={max ?? undefined}
+            onChange={event => setLocalMax(event.target.value)}
+            onBlur={handleBlur(1)}
+            onKeyDown={handleKeyDown}
+            className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
@@ -661,4 +688,3 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onClearFilte
 };
 
 export default Sidebar;
-
