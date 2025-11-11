@@ -16,6 +16,7 @@ import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { FiltersState, createDefaultFilters } from './constants/filters';
 
 // Component to scroll to top on route change
 const ScrollToTop: React.FC = () => {
@@ -54,47 +55,19 @@ const Layout: React.FC = () => {
 // Main page component
 const MainPage: React.FC = () => {
   const location = useLocation();
-  const [filters, setFilters] = useState<{
-    make: string[];
-    model: string[];
-    priceRange: [number, number];
-    mileage: [number, number];
-    year: [number, number];
-    engineSize: string[];
-    transmission: string[];
-    drivetrain: string[];
-    fuelType: string[];
-    bodyType: string[];
-    condition: string[];
-    customsStatus: string[];
-    steeringWheel: string[];
-    color: string[];
-    generation: string[];
-  }>({
-    make: [],
-    model: [],
-    priceRange: [0, 0],
-    mileage: [0, 0],
-    year: [0, 0],
-    engineSize: [],
-    transmission: [],
-    drivetrain: [],
-    fuelType: [],
-    bodyType: [],
-    condition: [],
-    customsStatus: [],
-    steeringWheel: [],
-    color: [],
-    generation: []
-  });
+  const [filters, setFilters] = useState<FiltersState>(() => createDefaultFilters());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleFilterChange = (filterType: string, value: any) => {
+  const handleFilterChange = <K extends keyof FiltersState>(filterType: K, value: FiltersState[K]) => {
     setFilters(prev => ({
       ...prev,
       [filterType]: value
     }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters(createDefaultFilters());
   };
 
   const handleApplyFilters = () => {
@@ -130,6 +103,7 @@ const MainPage: React.FC = () => {
         <Sidebar 
           filters={filters}
           onFilterChange={handleFilterChange}
+          onClearFilters={handleResetFilters}
           onApplyFilters={handleApplyFilters}
         />
       </aside>
@@ -138,6 +112,7 @@ const MainPage: React.FC = () => {
         <CarList 
           filters={filters}
           onFilterChange={handleFilterChange}
+          onResetFilters={handleResetFilters}
           refreshTrigger={refreshTrigger}
         />
       </div>

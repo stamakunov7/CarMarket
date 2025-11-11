@@ -1,75 +1,151 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { FiltersState } from '../constants/filters';
 
 interface AppliedFiltersProps {
-  filters: {
-    make: string[];
-    model: string[];
-    priceRange: [number, number];
-    mileage: [number, number];
-    year: [number, number];
-  };
+  filters: FiltersState;
   onRemoveFilter: (filterType: string, value?: any) => void;
 }
 
+interface ActiveFilter {
+  type: string;
+  label: string;
+  value?: any;
+}
+
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
 const AppliedFilters: React.FC<AppliedFiltersProps> = ({ filters, onRemoveFilter }) => {
-  const getActiveFilters = () => {
-    const activeFilters: Array<{ type: string; label: string; value: any }> = [];
+  const activeFilters = useMemo<ActiveFilter[]>(() => {
+    const items: ActiveFilter[] = [];
 
-    // Make filter
-    if (filters.make[0] && filters.make[0] !== '') {
-      activeFilters.push({
+    if (filters.make) {
+      items.push({
         type: 'make',
-        label: `Make: ${filters.make[0].charAt(0).toUpperCase() + filters.make[0].slice(1)}`,
-        value: filters.make[0]
+        label: `Make: ${capitalize(filters.make)}`,
+        value: filters.make,
       });
     }
 
-    // Model filter
-    if (filters.model[0] && filters.model[0] !== '') {
-      activeFilters.push({
+    if (filters.model) {
+      items.push({
         type: 'model',
-        label: `Model: ${filters.model[0].charAt(0).toUpperCase() + filters.model[0].slice(1)}`,
-        value: filters.model[0]
+        label: `Model: ${capitalize(filters.model)}`,
+        value: filters.model,
       });
     }
 
-    // Price range filter
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] > 0) {
-      const minPrice = filters.priceRange[0] > 0 ? `$${filters.priceRange[0].toLocaleString()}` : 'Any';
-      const maxPrice = filters.priceRange[1] > 0 ? `$${filters.priceRange[1].toLocaleString()}` : 'Any';
-      activeFilters.push({
+    const [minPrice, maxPrice] = filters.priceRange;
+    if (minPrice !== null || maxPrice !== null) {
+      const minLabel = minPrice !== null ? `$${minPrice.toLocaleString()}` : 'Any';
+      const maxLabel = maxPrice !== null ? `$${maxPrice.toLocaleString()}` : 'Any';
+      items.push({
         type: 'priceRange',
-        label: `Price: ${minPrice} - ${maxPrice}`,
-        value: filters.priceRange
+        label: `Price: ${minLabel} - ${maxLabel}`,
       });
     }
 
-    // Mileage filter
-    if (filters.mileage[0] > 0 || filters.mileage[1] > 0) {
-      const minMileage = filters.mileage[0] > 0 ? `${filters.mileage[0].toLocaleString()} mi` : 'Any';
-      const maxMileage = filters.mileage[1] > 0 ? `${filters.mileage[1].toLocaleString()} mi` : 'Any';
-      activeFilters.push({
+    const [minMileage, maxMileage] = filters.mileage;
+    if (minMileage !== null || maxMileage !== null) {
+      const minLabel = minMileage !== null ? `${minMileage.toLocaleString()} km` : 'Any';
+      const maxLabel = maxMileage !== null ? `${maxMileage.toLocaleString()} km` : 'Any';
+      items.push({
         type: 'mileage',
-        label: `Mileage: ${minMileage} - ${maxMileage}`,
-        value: filters.mileage
+        label: `Mileage: ${minLabel} - ${maxLabel}`,
       });
     }
 
-    // Year filter
-    if (filters.year[0] > 0 || filters.year[1] > 0) {
-      const minYear = filters.year[0] > 0 ? filters.year[0].toString() : 'Any';
-      const maxYear = filters.year[1] > 0 ? filters.year[1].toString() : 'Any';
-      activeFilters.push({
+    const [minYear, maxYear] = filters.year;
+    if (minYear !== null || maxYear !== null) {
+      const minLabel = minYear !== null ? minYear.toString() : 'Any';
+      const maxLabel = maxYear !== null ? maxYear.toString() : 'Any';
+      items.push({
         type: 'year',
-        label: `Year: ${minYear} - ${maxYear}`,
-        value: filters.year
+        label: `Year: ${minLabel} - ${maxLabel}`,
       });
     }
 
-    return activeFilters;
-  };
+    filters.engineSize.forEach(size => {
+      items.push({
+        type: 'engineSize',
+        label: `Engine Size: ${size}`,
+        value: size,
+      });
+    });
 
-  const activeFilters = getActiveFilters();
+    filters.transmission.forEach(transmission => {
+      items.push({
+        type: 'transmission',
+        label: `Transmission: ${transmission}`,
+        value: transmission,
+      });
+    });
+
+    filters.drivetrain.forEach(drivetrain => {
+      items.push({
+        type: 'drivetrain',
+        label: `Drivetrain: ${drivetrain}`,
+        value: drivetrain,
+      });
+    });
+
+    filters.fuelType.forEach(fuel => {
+      items.push({
+        type: 'fuelType',
+        label: `Fuel: ${fuel}`,
+        value: fuel,
+      });
+    });
+
+    filters.bodyType.forEach(body => {
+      items.push({
+        type: 'bodyType',
+        label: `Body: ${body}`,
+        value: body,
+      });
+    });
+
+    filters.condition.forEach(condition => {
+      items.push({
+        type: 'condition',
+        label: `Condition: ${condition}`,
+        value: condition,
+      });
+    });
+
+    filters.customsStatus.forEach(status => {
+      items.push({
+        type: 'customsStatus',
+        label: `Customs: ${status}`,
+        value: status,
+      });
+    });
+
+    filters.steeringWheel.forEach(position => {
+      items.push({
+        type: 'steeringWheel',
+        label: `Steering: ${position}`,
+        value: position,
+      });
+    });
+
+    if (filters.color) {
+      items.push({
+        type: 'color',
+        label: `Color: ${filters.color}`,
+        value: filters.color,
+      });
+    }
+
+    if (filters.generation) {
+      items.push({
+        type: 'generation',
+        label: `Generation: ${filters.generation}`,
+        value: filters.generation,
+      });
+    }
+
+    return items;
+  }, [filters]);
 
   if (activeFilters.length === 0) {
     return null;
@@ -80,7 +156,7 @@ const AppliedFilters: React.FC<AppliedFiltersProps> = ({ filters, onRemoveFilter
       <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Applied filters:</span>
       {activeFilters.map((filter, index) => (
         <div
-          key={`${filter.type}-${index}`}
+          key={`${filter.type}-${filter.value ?? index}`}
           className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm"
         >
           <span>{filter.label}</span>

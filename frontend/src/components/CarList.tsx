@@ -3,31 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import CarCard from './CarCard';
 import AppliedFilters from './AppliedFilters';
 import { useListings, Listing } from '../hooks/useListings';
+import { FiltersState } from '../constants/filters';
 
+type FilterChangeHandler = <K extends keyof FiltersState>(filterType: K, value: FiltersState[K]) => void;
 
 interface CarListProps {
-  filters: {
-    make: string[];
-    model: string[];
-    priceRange: [number, number];
-    mileage: [number, number];
-    year: [number, number];
-    engineSize: string[];
-    transmission: string[];
-    drivetrain: string[];
-    fuelType: string[];
-    bodyType: string[];
-    condition: string[];
-    customsStatus: string[];
-    steeringWheel: string[];
-    color: string[];
-    generation: string[];
-  };
-  onFilterChange: (filterType: string, value: any) => void;
+  filters: FiltersState;
+  onFilterChange: FilterChangeHandler;
+  onResetFilters: () => void;
   refreshTrigger?: number;
 }
 
-const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, refreshTrigger }) => {
+const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, onResetFilters, refreshTrigger }) => {
   const { getListings, loading, error } = useListings();
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState<string>('created_at');
@@ -39,14 +26,14 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, refreshTrigg
   // Fetch listings from API
   const fetchListings = async () => {
     const result = await getListings({
-      make: filters.make[0] || undefined,
-      model: filters.model[0] || undefined,
-      minPrice: filters.priceRange[0] > 0 ? filters.priceRange[0] : undefined,
-      maxPrice: filters.priceRange[1] > 0 ? filters.priceRange[1] : undefined,
-      minYear: filters.year[0] > 0 ? filters.year[0] : undefined,
-      maxYear: filters.year[1] > 0 ? filters.year[1] : undefined,
-      minMileage: filters.mileage[0] > 0 ? filters.mileage[0] : undefined,
-      maxMileage: filters.mileage[1] > 0 ? filters.mileage[1] : undefined,
+      make: filters.make || undefined,
+      model: filters.model || undefined,
+      minPrice: filters.priceRange[0] ?? undefined,
+      maxPrice: filters.priceRange[1] ?? undefined,
+      minYear: filters.year[0] ?? undefined,
+      maxYear: filters.year[1] ?? undefined,
+      minMileage: filters.mileage[0] ?? undefined,
+      maxMileage: filters.mileage[1] ?? undefined,
       engineSize: filters.engineSize.length > 0 ? filters.engineSize : undefined,
       transmission: filters.transmission.length > 0 ? filters.transmission : undefined,
       drivetrain: filters.drivetrain.length > 0 ? filters.drivetrain : undefined,
@@ -55,8 +42,8 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, refreshTrigg
       condition: filters.condition.length > 0 ? filters.condition : undefined,
       customsStatus: filters.customsStatus.length > 0 ? filters.customsStatus : undefined,
       steeringWheel: filters.steeringWheel.length > 0 ? filters.steeringWheel : undefined,
-      color: filters.color.length > 0 ? filters.color : undefined,
-      generation: filters.generation.length > 0 ? filters.generation : undefined,
+      color: filters.color ? [filters.color] : undefined,
+      generation: filters.generation ? [filters.generation] : undefined,
       sortBy,
       sortOrder,
     });
@@ -97,70 +84,79 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, refreshTrigg
   // Filter removal function
   const handleRemoveFilter = (filterType: string, value?: any) => {
     if (filterType === 'all') {
-      // Clear all filters
-      onFilterChange('make', []);
-      onFilterChange('model', []);
-      onFilterChange('priceRange', [0, 0]);
-      onFilterChange('mileage', [0, 0]);
-      onFilterChange('year', [0, 0]);
-      onFilterChange('engineSize', []);
-      onFilterChange('transmission', []);
-      onFilterChange('drivetrain', []);
-      onFilterChange('fuelType', []);
-      onFilterChange('bodyType', []);
-      onFilterChange('condition', []);
-      onFilterChange('customsStatus', []);
-      onFilterChange('steeringWheel', []);
-      onFilterChange('color', []);
-      onFilterChange('generation', []);
+      onResetFilters();
     } else {
       // Clear specific filter
       switch (filterType) {
         case 'make':
-          onFilterChange('make', []);
-          onFilterChange('model', []); // Also clear model when make is cleared
+          onFilterChange('make', null);
+          onFilterChange('model', null); // Also clear model when make is cleared
           break;
         case 'model':
-          onFilterChange('model', []);
+          onFilterChange('model', null);
           break;
         case 'priceRange':
-          onFilterChange('priceRange', [0, 0]);
+          onFilterChange('priceRange', [null, null]);
           break;
         case 'mileage':
-          onFilterChange('mileage', [0, 0]);
+          onFilterChange('mileage', [null, null]);
           break;
         case 'year':
-          onFilterChange('year', [0, 0]);
+          onFilterChange('year', [null, null]);
           break;
         case 'engineSize':
-          onFilterChange('engineSize', []);
+          onFilterChange(
+            'engineSize',
+            value ? filters.engineSize.filter(item => item !== value) : []
+          );
           break;
         case 'transmission':
-          onFilterChange('transmission', []);
+          onFilterChange(
+            'transmission',
+            value ? filters.transmission.filter(item => item !== value) : []
+          );
           break;
         case 'drivetrain':
-          onFilterChange('drivetrain', []);
+          onFilterChange(
+            'drivetrain',
+            value ? filters.drivetrain.filter(item => item !== value) : []
+          );
           break;
         case 'fuelType':
-          onFilterChange('fuelType', []);
+          onFilterChange(
+            'fuelType',
+            value ? filters.fuelType.filter(item => item !== value) : []
+          );
           break;
         case 'bodyType':
-          onFilterChange('bodyType', []);
+          onFilterChange(
+            'bodyType',
+            value ? filters.bodyType.filter(item => item !== value) : []
+          );
           break;
         case 'condition':
-          onFilterChange('condition', []);
+          onFilterChange(
+            'condition',
+            value ? filters.condition.filter(item => item !== value) : []
+          );
           break;
         case 'customsStatus':
-          onFilterChange('customsStatus', []);
+          onFilterChange(
+            'customsStatus',
+            value ? filters.customsStatus.filter(item => item !== value) : []
+          );
           break;
         case 'steeringWheel':
-          onFilterChange('steeringWheel', []);
+          onFilterChange(
+            'steeringWheel',
+            value ? filters.steeringWheel.filter(item => item !== value) : []
+          );
           break;
         case 'color':
-          onFilterChange('color', []);
+          onFilterChange('color', null);
           break;
         case 'generation':
-          onFilterChange('generation', []);
+          onFilterChange('generation', null);
           break;
       }
     }

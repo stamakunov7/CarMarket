@@ -1,10 +1,35 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { carData } from '../data/cars';
+import { useListings } from '../hooks/useListings';
+import { FiltersState, RangeValue } from '../constants/filters';
+
+type FilterChangeHandler = <K extends keyof FiltersState>(filterType: K, value: FiltersState[K]) => void;
+
+interface ApiFilterOptions {
+  makes?: string[];
+  models?: Record<string, string[]>;
+  engine_sizes?: (number | string)[];
+  transmission_types?: string[];
+  drivetrain_types?: string[];
+  fuel_types?: string[];
+  body_types?: string[];
+  conditions?: string[];
+  customs_status?: string[];
+  steering_wheel_positions?: string[];
+  generations?: string[];
+  colors?: string[];
+  min_year?: number;
+  max_year?: number;
+  min_price?: number;
+  max_price?: number;
+  min_mileage?: number;
+  max_mileage?: number;
+}
 
 interface FilterOptions {
   makes: string[];
-  models: { [key: string]: string[] };
-  engine_sizes: (number | string)[];
+  models: Record<string, string[]>;
+  engine_sizes: string[];
   transmission_types: string[];
   drivetrain_types: string[];
   fuel_types: string[];
@@ -14,178 +39,266 @@ interface FilterOptions {
   steering_wheel_positions: string[];
   generations: string[];
   colors: string[];
-  min_year: number;
-  max_year: number;
-  min_price: number;
-  max_price: number;
-  min_mileage: number;
-  max_mileage: number;
+  min_year: number | null;
+  max_year: number | null;
+  min_price: number | null;
+  max_price: number | null;
+  min_mileage: number | null;
+  max_mileage: number | null;
 }
 
 interface SidebarProps {
-  filters: {
-    make: string[];
-    model: string[];
-    priceRange: [number, number];
-    mileage: [number, number];
-    year: [number, number];
-    engineSize: string[];
-    transmission: string[];
-    drivetrain: string[];
-    fuelType: string[];
-    bodyType: string[];
-    condition: string[];
-    customsStatus: string[];
-    steeringWheel: string[];
-    color: string[];
-    generation: string[];
-  };
-  onFilterChange: (filterType: string, value: any) => void;
+  filters: FiltersState;
+  onFilterChange: FilterChangeHandler;
+  onClearFilters: () => void;
   onApplyFilters: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilters }) => {
+type RangeFilterKey = 'priceRange' | 'mileage' | 'year';
+type ArrayFilterKey =
+  | 'engineSize'
+  | 'transmission'
+  | 'drivetrain'
+  | 'fuelType'
+  | 'bodyType'
+  | 'condition'
+  | 'customsStatus'
+  | 'steeringWheel';
+
+const FALLBACK_COLORS = [
+  'Black',
+  'White',
+  'Silver',
+  'Gray',
+  'Red',
+  'Blue',
+  'Green',
+  'Yellow',
+  'Orange',
+  'Brown',
+  'Gold',
+  'Purple',
+  'Pink',
+  'Beige',
+  'Navy',
+  'Maroon',
+  'Turquoise',
+];
+
+const STATIC_GENERATION_GROUPS: Array<{ label: string; options: Array<{ value: string; label: string }> }> = [
+  {
+    label: 'BMW',
+    options: [
+      { value: 'G30', label: 'G30 (5 Series 2017-2023)' },
+      { value: 'F30', label: 'F30 (3 Series 2012-2019)' },
+      { value: 'E90', label: 'E90 (3 Series 2005-2012)' },
+      { value: 'G20', label: 'G20 (3 Series 2019-present)' },
+      { value: 'F10', label: 'F10 (5 Series 2010-2017)' },
+      { value: 'E60', label: 'E60 (5 Series 2003-2010)' },
+      { value: 'G01', label: 'G01 (X3 2017-present)' },
+      { value: 'F25', label: 'F25 (X3 2010-2017)' },
+      { value: 'G05', label: 'G05 (X5 2018-present)' },
+      { value: 'F15', label: 'F15 (X5 2013-2018)' },
+    ],
+  },
+  {
+    label: 'Mercedes-Benz',
+    options: [
+      { value: 'W206', label: 'W206 (C-Class 2021-present)' },
+      { value: 'W205', label: 'W205 (C-Class 2014-2021)' },
+      { value: 'W204', label: 'W204 (C-Class 2007-2014)' },
+      { value: 'W214', label: 'W214 (E-Class 2023-present)' },
+      { value: 'W213', label: 'W213 (E-Class 2016-2023)' },
+      { value: 'W212', label: 'W212 (E-Class 2009-2016)' },
+      { value: 'X254', label: 'X254 (GLC 2022-present)' },
+      { value: 'X253', label: 'X253 (GLC 2015-2022)' },
+      { value: 'W167', label: 'W167 (GLE 2019-present)' },
+      { value: 'W166', label: 'W166 (GLE 2011-2019)' },
+    ],
+  },
+  {
+    label: 'Audi',
+    options: [
+      { value: 'B10', label: 'B10 (A4 2023-present)' },
+      { value: 'B9', label: 'B9 (A4 2015-2023)' },
+      { value: 'B8', label: 'B8 (A4 2007-2015)' },
+      { value: 'C8', label: 'C8 (A6 2018-present)' },
+      { value: 'C7', label: 'C7 (A6 2011-2018)' },
+      { value: 'FY', label: 'FY (Q5 2017-present)' },
+      { value: '8R', label: '8R (Q5 2008-2017)' },
+      { value: '4M', label: '4M (Q7 2015-present)' },
+      { value: '4L', label: '4L (Q7 2005-2015)' },
+    ],
+  },
+  {
+    label: 'Toyota',
+    options: [
+      { value: 'XV80', label: 'XV80 (Camry 2023-present)' },
+      { value: 'XV70', label: 'XV70 (Camry 2017-2023)' },
+      { value: 'XV50', label: 'XV50 (Camry 2011-2017)' },
+      { value: 'XV40', label: 'XV40 (Camry 2006-2011)' },
+      { value: 'E210', label: 'E210 (Corolla 2018-present)' },
+      { value: 'E170', label: 'E170 (Corolla 2013-2018)' },
+      { value: 'E150', label: 'E150 (Corolla 2006-2013)' },
+      { value: 'XW60', label: 'XW60 (Prius 2022-present)' },
+      { value: 'XW50', label: 'XW50 (Prius 2015-2022)' },
+      { value: 'XW30', label: 'XW30 (Prius 2009-2015)' },
+      { value: 'XA50', label: 'XA50 (RAV4 2018-present)' },
+      { value: 'XA40', label: 'XA40 (RAV4 2012-2018)' },
+      { value: 'XA30', label: 'XA30 (RAV4 2005-2012)' },
+    ],
+  },
+  {
+    label: 'Honda',
+    options: [
+      { value: '11th Gen Civic', label: '11th Gen (Civic 2021-present)' },
+      { value: '10th Gen Civic', label: '10th Gen (Civic 2015-2021)' },
+      { value: '9th Gen Civic', label: '9th Gen (Civic 2011-2015)' },
+      { value: '8th Gen Civic', label: '8th Gen (Civic 2005-2011)' },
+      { value: '11th Gen Accord', label: '11th Gen (Accord 2022-present)' },
+      { value: '10th Gen Accord', label: '10th Gen (Accord 2017-2022)' },
+      { value: '9th Gen Accord', label: '9th Gen (Accord 2012-2017)' },
+      { value: '8th Gen Accord', label: '8th Gen (Accord 2007-2012)' },
+      { value: '6th Gen CR-V', label: '6th Gen (CR-V 2022-present)' },
+      { value: '5th Gen CR-V', label: '5th Gen (CR-V 2016-2022)' },
+      { value: '4th Gen CR-V', label: '4th Gen (CR-V 2011-2016)' },
+      { value: '3rd Gen CR-V', label: '3rd Gen (CR-V 2006-2011)' },
+    ],
+  },
+  {
+    label: 'Porsche',
+    options: [
+      { value: '992', label: '992 (911 2018-present)' },
+      { value: '991', label: '991 (911 2011-2019)' },
+      { value: '997', label: '997 (911 2004-2012)' },
+      { value: '718', label: '718 (Cayman 2016-present)' },
+      { value: '981', label: '981 (Cayman 2012-2016)' },
+      { value: '987', label: '987 (Cayman 2005-2012)' },
+      { value: '95B', label: '95B (Macan 2014-present)' },
+    ],
+  },
+];
+
+const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onClearFilters, onApplyFilters }) => {
+  const { getFilterOptions } = useListings();
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
-  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
     technical: false,
     condition: false,
-    location: false
+    location: false,
   });
-  const [colorInput, setColorInput] = useState<string>('');
-  const [generationInput, setGenerationInput] = useState<string>('');
-  const colorInputRef = useRef<HTMLInputElement>(null);
-  const generationInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync generation input with filter
-  useEffect(() => {
-    if (filters.generation.length > 0) {
-      setGenerationInput(filters.generation[0]);
-    } else {
-      setGenerationInput('');
+  const combineFilterOptions = useCallback((data: ApiFilterOptions): FilterOptions => {
+    const staticMakes = Array.from(new Set(carData.map(car => car.make))).sort();
+    const staticModels: Record<string, string[]> = {};
+    carData.forEach(car => {
+      staticModels[car.make] = car.models.map(model => model.name);
+    });
+
+    const apiMakes = data.makes ?? [];
+    const allMakes = Array.from(new Set([...staticMakes, ...apiMakes])).sort();
+
+    const allModels: Record<string, string[]> = { ...staticModels };
+    if (data.models) {
+      Object.entries(data.models).forEach(([make, models]) => {
+        const currentModels = allModels[make] ?? [];
+        allModels[make] = Array.from(new Set([...currentModels, ...models])).sort();
+      });
     }
-  }, [filters.generation]);
 
-  // Sync color input with filter
-  useEffect(() => {
-    if (filters.color.length > 0) {
-      setColorInput(filters.color[0]);
-    } else {
-      setColorInput('');
-    }
-  }, [filters.color]);
-
-  // Handle color input change
-  const handleColorChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    console.log('Color input changed:', value);
-    setColorInput(value);
-    onFilterChange('color', value ? [value] : []);
-  }, [onFilterChange]);
-
-  // Handle generation input change
-  const handleGenerationChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    console.log('Generation input changed:', value);
-    setGenerationInput(value);
-    onFilterChange('generation', value ? [value] : []);
-  }, [onFilterChange]);
-
-  // Fetch filter options from API and merge with static data
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        console.log('Fetching filter options...');
-        const response = await fetch('https://carmarket-production.up.railway.app/api/listings/filters/options');
-        console.log('Response status:', response.status);
-        const data = await response.json();
-        console.log('Filter options data:', data);
-        if (data.success) {
-          // Merge static car data with API data
-          const staticMakes = Array.from(new Set(carData.map(car => car.make))).sort();
-          const staticModels: { [key: string]: string[] } = {};
-          carData.forEach(car => {
-            staticModels[car.make] = car.models.map(m => m.name);
-          });
-
-          // Combine static and API data for makes
-          const allMakes = Array.from(new Set([...staticMakes, ...(data.data.makes || [])])).sort();
-          
-          // Combine static and API data for models
-          const allModels: { [key: string]: string[] } = { ...staticModels };
-          if (data.data.models && typeof data.data.models === 'object') {
-            Object.keys(data.data.models).forEach(make => {
-              if (!allModels[make]) {
-                allModels[make] = [];
-              }
-              allModels[make] = Array.from(new Set([...allModels[make], ...data.data.models[make]])).sort();
-            });
-          }
-
-          setFilterOptions({
-            ...data.data,
-            makes: allMakes,
-            models: allModels
-          });
-          console.log('Filter options set successfully');
-        } else {
-          console.error('API returned success: false', data);
-        }
-      } catch (error) {
-        console.error('Error fetching filter options:', error);
-      }
+    return {
+      makes: allMakes,
+      models: allModels,
+      engine_sizes: (data.engine_sizes ?? []).map(size => size.toString()),
+      transmission_types: data.transmission_types ?? [],
+      drivetrain_types: data.drivetrain_types ?? [],
+      fuel_types: data.fuel_types ?? [],
+      body_types: data.body_types ?? [],
+      conditions: data.conditions ?? [],
+      customs_status: data.customs_status ?? [],
+      steering_wheel_positions: data.steering_wheel_positions ?? [],
+      generations: data.generations ?? [],
+      colors: data.colors ?? [],
+      min_year: data.min_year ?? null,
+      max_year: data.max_year ?? null,
+      min_price: data.min_price ?? null,
+      max_price: data.max_price ?? null,
+      min_mileage: data.min_mileage ?? null,
+      max_mileage: data.max_mileage ?? null,
     };
-
-    fetchFilterOptions();
   }, []);
+
+  const loadOptions = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const data = await getFilterOptions();
+      if (!data) {
+        setFilterOptions(null);
+        setLoadError('Unable to load filter options. Please try again.');
+        return;
+      }
+
+      setFilterOptions(combineFilterOptions(data));
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+      setFilterOptions(null);
+      setLoadError('Unable to load filter options. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [combineFilterOptions, getFilterOptions]);
+
+  useEffect(() => {
+    loadOptions();
+  }, [loadOptions]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
-  const handleMultiSelect = (filterType: string, value: string) => {
-    const currentValues = filters[filterType as keyof typeof filters] as string[];
-    const newValues = currentValues.includes(value)
-      ? currentValues.filter(v => v !== value)
+  const handleMultiSelect = (filterType: ArrayFilterKey, value: string) => {
+    const currentValues = filters[filterType] as string[];
+    const nextValues = currentValues.includes(value)
+      ? currentValues.filter(item => item !== value)
       : [...currentValues, value];
-    onFilterChange(filterType, newValues);
+
+    onFilterChange(filterType, nextValues);
   };
 
-  const clearAllFilters = () => {
-    onFilterChange('make', []);
-    onFilterChange('model', []);
-    onFilterChange('priceRange', [0, 0]);
-    onFilterChange('mileage', [0, 0]);
-    onFilterChange('year', [0, 0]);
-    onFilterChange('engineSize', []);
-    onFilterChange('transmission', []);
-    onFilterChange('drivetrain', []);
-    onFilterChange('fuelType', []);
-    onFilterChange('bodyType', []);
-    onFilterChange('condition', []);
-    onFilterChange('customsStatus', []);
-    onFilterChange('steeringWheel', []);
-    onFilterChange('color', []);
-    onFilterChange('generation', []);
-    setColorInput('');
-    setGenerationInput('');
-  };
+  const handleRangeChange = useCallback(
+    (filterType: RangeFilterKey, index: 0 | 1, rawValue: string) => {
+      const parsedValue = rawValue === '' ? null : Number(rawValue);
+      if (rawValue !== '' && Number.isNaN(parsedValue)) {
+        return;
+      }
+
+      const currentRange = filters[filterType] as RangeValue;
+      const nextRange: RangeValue = [...currentRange];
+      nextRange[index] = parsedValue;
+
+      onFilterChange(filterType, nextRange);
+    },
+    [filters, onFilterChange]
+  );
 
   const getActiveFiltersCount = () => {
     let count = 0;
-    // Only count non-empty filters
-    if (filters.make.length > 0 && filters.make[0] !== '') count++;
-    if (filters.model.length > 0 && filters.model[0] !== '') count++;
-    
-    // Range filters - count only if values are set and meaningful
-    if (filters.priceRange[0] > 0 || (filters.priceRange[1] > 0 && filters.priceRange[1] < 1000000)) count++;
-    if (filters.mileage[0] > 0 || (filters.mileage[1] > 0 && filters.mileage[1] < 200000)) count++;
-    if (filters.year[0] > 0 || (filters.year[1] > 0 && filters.year[1] < new Date().getFullYear() + 1)) count++;
-    
-    // Array filters - count only if not empty
+
+    if (filters.make) count++;
+    if (filters.model) count++;
+
+    if (filters.priceRange.some(value => value !== null)) count++;
+    if (filters.mileage.some(value => value !== null)) count++;
+    if (filters.year.some(value => value !== null)) count++;
+
     if (filters.engineSize.length > 0) count++;
     if (filters.transmission.length > 0) count++;
     if (filters.drivetrain.length > 0) count++;
@@ -194,8 +307,10 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     if (filters.condition.length > 0) count++;
     if (filters.customsStatus.length > 0) count++;
     if (filters.steeringWheel.length > 0) count++;
-    if (filters.color.length > 0 && filters.color[0] !== '') count++;
-    if (filters.generation.length > 0 && filters.generation[0] !== '') count++;
+
+    if (filters.color) count++;
+    if (filters.generation) count++;
+
     return count;
   };
 
@@ -219,19 +334,18 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     </div>
   );
 
-  const MultiSelectFilter = ({ 
-    title, 
-    options, 
-    selectedValues, 
-    filterType 
-  }: { 
-    title: string; 
-    options: string[] | undefined; 
-    selectedValues: string[]; 
-    filterType: string; 
+  const MultiSelectFilter = ({
+    title,
+    options,
+    selectedValues,
+    filterType,
+  }: {
+    title: string;
+    options: string[];
+    selectedValues: string[];
+    filterType: ArrayFilterKey;
   }) => {
-    // Safety check - if options is undefined or null, return empty div
-    if (!options || !Array.isArray(options) || options.length === 0) {
+    if (!options || options.length === 0) {
       return (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
@@ -244,7 +358,7 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
         <div className="max-h-32 overflow-y-auto space-y-2">
-          {options.map((option) => (
+          {options.map(option => (
             <label key={option} className="flex items-center">
               <input
                 type="checkbox"
@@ -260,24 +374,24 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
     );
   };
 
-  const RangeFilter = ({ 
-    title, 
-    minValue, 
-    maxValue, 
-    minPlaceholder, 
-    maxPlaceholder, 
+  const RangeFilter = ({
+    title,
+    minValue,
+    maxValue,
+    minPlaceholder,
+    maxPlaceholder,
     filterType,
-    min = 0,
-    max = 1000000
-  }: { 
-    title: string; 
-    minValue: number; 
-    maxValue: number; 
-    minPlaceholder: string; 
-    maxPlaceholder: string; 
-    filterType: string;
-    min?: number;
-    max?: number;
+    min,
+    max,
+  }: {
+    title: string;
+    minValue: number | null;
+    maxValue: number | null;
+    minPlaceholder: string;
+    maxPlaceholder: string;
+    filterType: RangeFilterKey;
+    min?: number | null;
+    max?: number | null;
   }) => (
     <div className="mb-4">
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</label>
@@ -285,29 +399,26 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <input
           type="number"
           placeholder={minPlaceholder}
-          value={minValue || ''}
-          min={min}
-          max={max}
-          onChange={(e) => onFilterChange(filterType, [parseInt(e.target.value) || 0, maxValue])}
+          value={minValue ?? ''}
+          min={min ?? undefined}
+          max={max ?? undefined}
+          onChange={event => handleRangeChange(filterType, 0, event.target.value)}
           className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
         />
         <input
           type="number"
           placeholder={maxPlaceholder}
-          value={maxValue || ''}
-          min={min}
-          max={max}
-          onChange={(e) => onFilterChange(filterType, [minValue, parseInt(e.target.value) || 0])}
+          value={maxValue ?? ''}
+          min={min ?? undefined}
+          max={max ?? undefined}
+          onChange={event => handleRangeChange(filterType, 1, event.target.value)}
           className="w-1/2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
         />
       </div>
     </div>
   );
 
-  console.log('Sidebar render - filterOptions:', filterOptions);
-
-  if (!filterOptions) {
-    console.log('Filter options not loaded, showing loading state');
+  if (isLoading) {
     return (
       <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm transition-colors duration-200">
         <div className="animate-pulse">
@@ -321,7 +432,24 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
       </div>
     );
   }
-  
+
+  if (loadError || !filterOptions) {
+    return (
+      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm transition-colors duration-200 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+        <p>{loadError ?? 'Unable to load filter options. Please try again.'}</p>
+        <button
+          onClick={loadOptions}
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors duration-200"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const colorOptions = filterOptions.colors.length > 0 ? filterOptions.colors : FALLBACK_COLORS;
+  const generationOptions = filterOptions.generations;
+
   return (
     <div className="bg-white dark:bg-[#1E1E1E] p-3 md:p-6 rounded-lg shadow-sm transition-colors duration-200 max-h-screen md:max-h-none overflow-y-auto md:overflow-y-visible">
       <div className="flex items-center justify-between mb-4 md:mb-6">
@@ -333,47 +461,53 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
             </span>
           )}
           <button
-            onClick={clearAllFilters}
+            onClick={onClearFilters}
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
           >
             Clear All
           </button>
         </div>
       </div>
-      
+
       <div className="space-y-3 md:space-y-4">
         <FilterSection title="Basic Info" section="basic">
           <div className="mb-3 md:mb-4">
-          <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Make</label>
-          <select 
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
-            value={filters.make[0] || ''}
-              onChange={(e) => {
-                onFilterChange('make', [e.target.value]);
-                onFilterChange('model', []); // Clear model when make changes
+            <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Make</label>
+            <select
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
+              value={filters.make ?? ''}
+              onChange={event => {
+                const selectedMake = event.target.value || null;
+                onFilterChange('make', selectedMake);
+                onFilterChange('model', null);
               }}
-          >
-            <option value="">All makes</option>
-              {filterOptions.makes.map((make) => (
-                <option key={make} value={make}>{make}</option>
+            >
+              <option value="">All makes</option>
+              {filterOptions.makes.map(make => (
+                <option key={make} value={make}>
+                  {make}
+                </option>
               ))}
-          </select>
-        </div>
+            </select>
+          </div>
 
           <div className="mb-3 md:mb-4">
-          <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Model</label>
-          <select 
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
-            value={filters.model[0] || ''}
-            onChange={(e) => onFilterChange('model', [e.target.value])}
-              disabled={!filters.make[0]}
-          >
-            <option value="">All models</option>
-              {filters.make[0] && filterOptions.models[filters.make[0]]?.map((model) => (
-                <option key={model} value={model}>{model}</option>
-              ))}
-          </select>
-        </div>
+            <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Model</label>
+            <select
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
+              value={filters.model ?? ''}
+              onChange={event => onFilterChange('model', event.target.value || null)}
+              disabled={!filters.make}
+            >
+              <option value="">All models</option>
+              {filters.make &&
+                filterOptions.models[filters.make]?.map(model => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+            </select>
+          </div>
 
           <RangeFilter
             title="Price Range ($)"
@@ -412,35 +546,35 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Technical Specs" section="technical">
           <MultiSelectFilter
             title="Engine Size"
-            options={filterOptions?.engine_sizes?.map(size => String(size)) || []}
+            options={filterOptions.engine_sizes}
             selectedValues={filters.engineSize}
             filterType="engineSize"
           />
 
           <MultiSelectFilter
             title="Transmission"
-            options={filterOptions?.transmission_types || []}
+            options={filterOptions.transmission_types}
             selectedValues={filters.transmission}
             filterType="transmission"
           />
 
           <MultiSelectFilter
             title="Drivetrain"
-            options={filterOptions?.drivetrain_types || []}
+            options={filterOptions.drivetrain_types}
             selectedValues={filters.drivetrain}
             filterType="drivetrain"
           />
 
           <MultiSelectFilter
             title="Fuel Type"
-            options={filterOptions?.fuel_types || []}
+            options={filterOptions.fuel_types}
             selectedValues={filters.fuelType}
             filterType="fuelType"
           />
 
           <MultiSelectFilter
             title="Body Type"
-            options={filterOptions?.body_types || []}
+            options={filterOptions.body_types}
             selectedValues={filters.bodyType}
             filterType="bodyType"
           />
@@ -449,21 +583,21 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
         <FilterSection title="Condition & Status" section="condition">
           <MultiSelectFilter
             title="Condition"
-            options={filterOptions?.conditions || []}
+            options={filterOptions.conditions}
             selectedValues={filters.condition}
             filterType="condition"
           />
 
           <MultiSelectFilter
             title="Customs Status"
-            options={filterOptions?.customs_status || []}
+            options={filterOptions.customs_status}
             selectedValues={filters.customsStatus}
             filterType="customsStatus"
           />
 
           <MultiSelectFilter
             title="Steering Wheel"
-            options={filterOptions?.steering_wheel_positions || []}
+            options={filterOptions.steering_wheel_positions}
             selectedValues={filters.steeringWheel}
             filterType="steeringWheel"
           />
@@ -473,131 +607,50 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
           <div className="mb-3 md:mb-4">
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Color</label>
             <select
-              value={colorInput}
-              onChange={handleColorChange}
+              value={filters.color ?? ''}
+              onChange={event => onFilterChange('color', event.target.value || null)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
             >
               <option value="">All colors</option>
-              <option value="Black">Black</option>
-              <option value="White">White</option>
-              <option value="Silver">Silver</option>
-              <option value="Gray">Gray</option>
-              <option value="Red">Red</option>
-              <option value="Blue">Blue</option>
-              <option value="Green">Green</option>
-              <option value="Yellow">Yellow</option>
-              <option value="Orange">Orange</option>
-              <option value="Brown">Brown</option>
-              <option value="Gold">Gold</option>
-              <option value="Purple">Purple</option>
-              <option value="Pink">Pink</option>
-              <option value="Beige">Beige</option>
-              <option value="Navy">Navy</option>
-              <option value="Maroon">Maroon</option>
-              <option value="Turquoise">Turquoise</option>
+              {colorOptions.map(color => (
+                <option key={color} value={color}>
+                  {color}
+                </option>
+              ))}
             </select>
-        </div>
+          </div>
 
           <div className="mb-3 md:mb-4">
             <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 md:mb-2">Generation</label>
             <select
-              value={generationInput}
-              onChange={handleGenerationChange}
+              value={filters.generation ?? ''}
+              onChange={event => onFilterChange('generation', event.target.value || null)}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 md:p-2 bg-white dark:bg-[#121212] text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm md:text-base"
             >
               <option value="">All generations</option>
-              <optgroup label="BMW">
-                <option value="G30">G30 (5 Series 2017-2023)</option>
-                <option value="F30">F30 (3 Series 2012-2019)</option>
-                <option value="E90">E90 (3 Series 2005-2012)</option>
-                <option value="G20">G20 (3 Series 2019-present)</option>
-                <option value="F10">F10 (5 Series 2010-2017)</option>
-                <option value="E60">E60 (5 Series 2003-2010)</option>
-                <option value="G01">G01 (X3 2017-present)</option>
-                <option value="F25">F25 (X3 2010-2017)</option>
-                <option value="G05">G05 (X5 2018-present)</option>
-                <option value="F15">F15 (X5 2013-2018)</option>
-              </optgroup>
-              <optgroup label="Mercedes-Benz">
-                <option value="W206">W206 (C-Class 2021-present)</option>
-                <option value="W205">W205 (C-Class 2014-2021)</option>
-                <option value="W204">W204 (C-Class 2007-2014)</option>
-                <option value="W214">W214 (E-Class 2023-present)</option>
-                <option value="W213">W213 (E-Class 2016-2023)</option>
-                <option value="W212">W212 (E-Class 2009-2016)</option>
-                <option value="X254">X254 (GLC 2022-present)</option>
-                <option value="X253">X253 (GLC 2015-2022)</option>
-                <option value="W167">W167 (GLE 2019-present)</option>
-                <option value="W166">W166 (GLE 2011-2019)</option>
-              </optgroup>
-              <optgroup label="Audi">
-                <option value="B10">B10 (A4 2023-present)</option>
-                <option value="B9">B9 (A4 2015-2023)</option>
-                <option value="B8">B8 (A4 2007-2015)</option>
-                <option value="C8">C8 (A6 2018-present)</option>
-                <option value="C7">C7 (A6 2011-2018)</option>
-                <option value="FY">FY (Q5 2017-present)</option>
-                <option value="8R">8R (Q5 2008-2017)</option>
-                <option value="4M">4M (Q7 2015-present)</option>
-                <option value="4L">4L (Q7 2005-2015)</option>
-              </optgroup>
-              <optgroup label="Toyota">
-                <option value="XV80">XV80 (Camry 2023-present)</option>
-                <option value="XV70">XV70 (Camry 2017-2023)</option>
-                <option value="XV50">XV50 (Camry 2011-2017)</option>
-                <option value="XV40">XV40 (Camry 2006-2011)</option>
-                <option value="E210">E210 (Corolla 2018-present)</option>
-                <option value="E170">E170 (Corolla 2013-2018)</option>
-                <option value="E150">E150 (Corolla 2006-2013)</option>
-                <option value="XW60">XW60 (Prius 2022-present)</option>
-                <option value="XW50">XW50 (Prius 2015-2022)</option>
-                <option value="XW30">XW30 (Prius 2009-2015)</option>
-                <option value="XA50">XA50 (RAV4 2018-present)</option>
-                <option value="XA40">XA40 (RAV4 2012-2018)</option>
-                <option value="XA30">XA30 (RAV4 2005-2012)</option>
-              </optgroup>
-              <optgroup label="Honda">
-                <option value="11th Gen">11th Gen (Civic 2021-present)</option>
-                <option value="10th Gen">10th Gen (Civic 2015-2021)</option>
-                <option value="9th Gen">9th Gen (Civic 2011-2015)</option>
-                <option value="8th Gen">8th Gen (Civic 2005-2011)</option>
-                <option value="11th Gen">11th Gen (Accord 2022-present)</option>
-                <option value="10th Gen">10th Gen (Accord 2017-2022)</option>
-                <option value="9th Gen">9th Gen (Accord 2012-2017)</option>
-                <option value="8th Gen">8th Gen (Accord 2007-2012)</option>
-                <option value="6th Gen">6th Gen (CR-V 2022-present)</option>
-                <option value="5th Gen">5th Gen (CR-V 2016-2022)</option>
-                <option value="4th Gen">4th Gen (CR-V 2011-2016)</option>
-                <option value="3rd Gen">3rd Gen (CR-V 2006-2011)</option>
-              </optgroup>
-              <optgroup label="Porsche">
-                <option value="992">992 (911 2018-present)</option>
-                <option value="991">991 (911 2011-2019)</option>
-                <option value="997">997 (911 2004-2012)</option>
-                <option value="718">718 (Cayman 2016-present)</option>
-                <option value="981">981 (Cayman 2012-2016)</option>
-                <option value="987">987 (Cayman 2005-2012)</option>
-                <option value="95B">95B (Macan 2014-present)</option>
-              </optgroup>
+              {generationOptions.length > 0 ? (
+                generationOptions.map(generation => (
+                  <option key={generation} value={generation}>
+                    {generation}
+                  </option>
+                ))
+              ) : (
+                STATIC_GENERATION_GROUPS.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              )}
             </select>
           </div>
         </FilterSection>
 
-        <button 
-          onClick={() => {
-            // Ensure current input values are applied to filters
-            if (colorInput) {
-              onFilterChange('color', [colorInput]);
-            } else {
-              onFilterChange('color', []);
-            }
-            if (generationInput) {
-              onFilterChange('generation', [generationInput]);
-            } else {
-              onFilterChange('generation', []);
-            }
-            onApplyFilters();
-          }}
+        <button
+          onClick={onApplyFilters}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 md:py-3 px-3 md:px-4 rounded-md transition-colors duration-200 font-medium text-xs md:text-sm"
         >
           Apply Filters
@@ -607,4 +660,5 @@ const Sidebar: React.FC<SidebarProps> = ({ filters, onFilterChange, onApplyFilte
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
+
