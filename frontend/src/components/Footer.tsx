@@ -56,10 +56,10 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Sell Your Car</h3>
             <ul className="space-y-3">
               <li><Link to="/sell" className="text-gray-300 hover:text-white transition-colors text-sm">List Your Vehicle</Link></li>
-              <li><a href="#" className="text-gray-300 hover:text-white transition-colors text-sm">Car Valuation</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-white transition-colors text-sm">Selling Guide</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-white transition-colors text-sm">Dealer Portal</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-white transition-colors text-sm">Trade-In Value</a></li>
+              <li><Link to="/sell#valuation" className="text-gray-300 hover:text-white transition-colors text-sm">Car Valuation</Link></li>
+              <li><Link to="/sell#guide" className="text-gray-300 hover:text-white transition-colors text-sm">Selling Guide</Link></li>
+              <li><Link to="/sell#dealer" className="text-gray-300 hover:text-white transition-colors text-sm">Dealer Portal</Link></li>
+              <li><Link to="/sell#trade-in" className="text-gray-300 hover:text-white transition-colors text-sm">Trade-In Value</Link></li>
             </ul>
           </div>
         </div>

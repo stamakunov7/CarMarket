@@ -36,7 +36,6 @@ const ScrollToTop: React.FC = () => {
 
 // Layout component that wraps all pages
 const Layout: React.FC = () => {
-  const { user } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
 
   return (

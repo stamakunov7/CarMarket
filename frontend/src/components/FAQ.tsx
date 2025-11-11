@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTheme } from '../context/ThemeContext';
 
 interface FAQItem {
   question: string;
@@ -36,8 +35,6 @@ const faqData: FAQItem[] = [
 const FAQ: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const { theme } = useTheme();
-
   const filteredFAQs = faqData.filter(item =>
     item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.answer.toLowerCase().includes(searchQuery.toLowerCase())

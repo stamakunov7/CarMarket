@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 interface SignInFormProps {
@@ -199,9 +200,9 @@ const SignInForm: React.FC<SignInFormProps> = ({ onSuccess }) => {
           </label>
         </div>
         <div className="text-sm">
-          <a href="#" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
+          <Link to="/support" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
             Forgot your password?
-          </a>
+          </Link>
         </div>
       </div>
 

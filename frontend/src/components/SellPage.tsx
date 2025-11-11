@@ -1,5 +1,4 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { useTheme } from '../context/ThemeContext';
 import { useListings } from '../hooks/useListings';
 import { 
   carData, 
@@ -14,7 +13,6 @@ import {
 } from '../data/cars';
 
 const SellPage: React.FC = () => {
-  const { theme } = useTheme();
   const { createListing, uploadImages, loading, error } = useListings();
   const [activeTab, setActiveTab] = useState<'details' | 'images' | 'contact'>('details');
   const [formData, setFormData] = useState({

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 
 const API_BASE_URL = 'https://carmarket-production.up.railway.app/api';
 

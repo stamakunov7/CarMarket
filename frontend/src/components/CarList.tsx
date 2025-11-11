@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CarCard from './CarCard';
 import AppliedFilters from './AppliedFilters';
@@ -20,11 +20,9 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, onResetFilte
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<string>('desc');
   const [listings, setListings] = useState<Listing[]>([]);
-  const [pagination, setPagination] = useState<any>(null);
-  const [filterOptions, setFilterOptions] = useState<any>(null);
 
   // Fetch listings from API
-  const fetchListings = async () => {
+  const fetchListings = useCallback(async () => {
     const result = await getListings({
       make: filters.make || undefined,
       model: filters.model || undefined,
@@ -50,22 +48,20 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, onResetFilte
 
     if (result) {
       setListings(result.listings);
-      setPagination(result.pagination);
-      setFilterOptions(result.filters);
     }
-  };
+  }, [filters, getListings, sortBy, sortOrder]);
 
   // Load listings on component mount and when filters or sorting change
   useEffect(() => {
     fetchListings();
-  }, [filters, sortBy, sortOrder]);
+  }, [fetchListings]);
 
   // Refresh data when refreshTrigger changes (when returning to main page)
   useEffect(() => {
     if (refreshTrigger && refreshTrigger > 0) {
       fetchListings();
     }
-  }, [refreshTrigger]);
+  }, [fetchListings, refreshTrigger]);
 
   // Refresh data when user returns to the page (focus event)
   useEffect(() => {
@@ -78,7 +74,7 @@ const CarList: React.FC<CarListProps> = ({ filters, onFilterChange, onResetFilte
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [filters, sortBy, sortOrder]);
+  }, [fetchListings]);
 
 
   // Filter removal function

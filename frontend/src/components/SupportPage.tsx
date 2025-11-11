@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useTheme } from '../context/ThemeContext';
 
 const SupportPage: React.FC = () => {
-  const { theme } = useTheme();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
