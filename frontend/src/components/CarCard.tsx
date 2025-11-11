@@ -41,15 +41,6 @@ const CarCard: React.FC<CarCardProps> = ({ car, onClick }) => {
   };
 
   const formatEngine = (): string => {
-    // Debug: log the values
-    console.log('Engine debug:', {
-      engine: car.engine,
-      engine_volume: car.engine_volume,
-      engine_power: car.engine_power,
-      volumeType: typeof car.engine_volume,
-      powerType: typeof car.engine_power
-    });
-    
     // If we have both engine_volume and engine_power with valid values, format as "3.5L 300hp"
     if (car.engine_volume && car.engine_power && 
         car.engine_volume !== '0.0' && car.engine_volume !== 0 && 
@@ -60,6 +51,8 @@ const CarCard: React.FC<CarCardProps> = ({ car, onClick }) => {
     // Fallback to engine description if available
     return car.engine || 'N/A';
   };
+
+  const displayTitle = car.title || `${car.year} ${car.manufacturer} ${car.model}`;
 
   return (
     <div
@@ -86,8 +79,11 @@ const CarCard: React.FC<CarCardProps> = ({ car, onClick }) => {
       {/* Content */}
       <div className="p-4">
         {/* Name: Use title if available, otherwise fallback to Year Manufacturer Model */}
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          {car.title || `${car.year} ${car.manufacturer} ${car.model}`}
+        <h2
+          className="text-xl font-semibold text-gray-900 dark:text-white mb-2 truncate whitespace-nowrap overflow-hidden"
+          title={displayTitle}
+        >
+          {displayTitle}
         </h2>
 
         {/* Car Details Grid */}
