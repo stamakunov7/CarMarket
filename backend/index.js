@@ -776,12 +776,33 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.get('/api/me', authenticateToken, (req, res) => {
+app.get('/api/me', authenticateToken, async (req, res) => {
   console.log('👤 Me endpoint requested');
-  res.json({
-    success: true,
-    user: { id: req.user.id, username: req.user.username, email: req.user.email }
-  });
+  try {
+    // Fetch full user data including created_at from database
+    const result = await pool.query(
+      'SELECT id, username, email, created_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      success: true,
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        created_at: user.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Me endpoint error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch user data' });
+  }
 });
 
 // Listings endpoints
